@@ -123,6 +123,7 @@ export function MatchScreen() {
   const [keepStrike, setKeepStrike] = useState(false);
   const [flash, setFlash]           = useState(false);
   const [tab, setTab]               = useState<"batting"|"bowling">("batting");
+  const [mobileTab, setMobileTab]   = useState<"score"|"controls">("controls");
 
   const matchTime    = useRef(new Date().toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }));
   const innings      = getActiveInnings(state);
@@ -172,11 +173,6 @@ export function MatchScreen() {
   const nsRpo     = nonStrike ? getRpo(nonStrike.playerId) : 6.5;
   const diagField = isBatting ? aiField : field;
   const extras    = innings.extras.wides + innings.extras.noBalls;
-  const nsAvg     = nonStrikerP
-    ? Math.round((nonStrikerP.batting.techniqueVsPace + nonStrikerP.batting.techniqueVsSpin) / 2)
-    : 0;
-  const nsSR = nonStrike && nonStrike.balls > 0
-    ? Math.round((nonStrike.runs / nonStrike.balls) * 100) : null;
 
   const handleNextBall = () => {
     if (!onStrike || !curBowler || !canPlay) return;
@@ -211,54 +207,84 @@ export function MatchScreen() {
 
   // ── render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-screen bg-gray-950 text-white overflow-hidden">
+    <div className="flex flex-col h-full text-white overflow-hidden"
+         style={{ background: "linear-gradient(135deg, #0a0f1e 0%, #0d1117 50%, #0a1628 100%)" }}>
 
       {/* ══ HEADER ══ */}
-      <div className="shrink-0 flex items-center justify-between px-4 py-2 border-b border-gray-800 bg-gray-950">
-        <div>
-          <p className="text-base font-bold leading-tight">
+      <div className="shrink-0 flex flex-col items-center justify-center px-4 py-3 md:py-4 gap-1"
+           style={{ background: "rgba(0,0,0,0.5)", borderBottom: "1px solid rgba(255,255,255,0.09)" }}>
+
+        {/* Venue + time — desktop only, above the names */}
+        <p className="hidden md:block text-[10px] text-gray-600 tracking-wide uppercase">
+          Dubai Stadium · {matchTime.current} · T10 · {isSecond ? "2nd" : "1st"} Innings
+        </p>
+
+        {/* Team names — centred, big */}
+        <div className="flex items-center gap-3 md:gap-5">
+          <span className="text-base md:text-2xl font-extrabold tracking-tight text-white truncate max-w-[120px] md:max-w-none text-right">
             {innings.battingTeamName}
-            <span className="text-gray-500 font-normal mx-2">vs</span>
+          </span>
+          <span className="text-xs md:text-sm text-gray-500 font-medium shrink-0">vs</span>
+          <span className="text-base md:text-2xl font-extrabold tracking-tight text-gray-400 truncate max-w-[120px] md:max-w-none">
             {innings.bowlingTeamName}
-          </p>
-          <p className="text-[11px] text-gray-500">
-            T10 Match · {isSecond ? "2nd" : "1st"} Innings
-            {isBatting ? " · You're batting" : " · You're bowling"}
-          </p>
+          </span>
         </div>
-        <div className="text-right">
-          <p className="text-[10px] text-gray-600">
-            Dubai Stadium · {matchTime.current}
-          </p>
-          <div className="flex items-center gap-2 justify-end mt-0.5">
-            <span className="text-white font-bold text-sm tabular-nums">
-              {innings.totalRuns}/{innings.totalWickets}
+
+        {/* Score line — centred below names */}
+        <div className="flex items-center gap-2 md:gap-3 mt-0.5">
+          <span className="text-lg md:text-3xl font-black tabular-nums text-emerald-300 leading-none">
+            {innings.totalRuns}/{innings.totalWickets}
+          </span>
+          <span className="text-xs md:text-sm text-gray-500 tabular-nums">
+            ({formatOvers(totalBalls)} ov)
+          </span>
+          <span className="hidden md:inline text-xs text-gray-600">
+            · RR {formatRunRate(innings.totalRuns, totalBalls)}
+          </span>
+          {reqRate !== null && (
+            <span className={`text-xs md:text-sm font-bold ${rrColor(reqRate)}`}>
+              · Need {reqRate.toFixed(1)}/ov
             </span>
-            <span className="text-gray-500 text-[11px]">
-              ({formatOvers(totalBalls)} ov) · RR {formatRunRate(innings.totalRuns, totalBalls)}
-            </span>
-            {reqRate !== null && (
-              <span className={`text-[11px] font-bold ${rrColor(reqRate)}`}>
-                · Need {reqRate.toFixed(1)}/ov
-              </span>
-            )}
-          </div>
+          )}
+          <span className="md:hidden text-[10px] text-gray-500">
+            {isBatting ? "Batting" : "Bowling"}
+          </span>
         </div>
       </div>
 
-      {/* ══ 2-COLUMN MAIN AREA ══ */}
-      <div className="flex flex-1 min-h-0">
+      {/* ══ MOBILE TAB BAR (hidden on desktop) ══ */}
+      <div className="md:hidden flex shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+        {(["score","controls"] as const).map(t => (
+          <button key={t} onClick={() => setMobileTab(t)}
+            className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors ${
+              mobileTab === t
+                ? "text-emerald-400 border-b-2 border-emerald-500 bg-white/5"
+                : "text-gray-500"
+            }`}>
+            {t === "score" ? "📊 Scorecard" : "🎮 Controls"}
+          </button>
+        ))}
+      </div>
 
-        {/* ════ LEFT 60% ════ */}
-        <div className="flex flex-col border-r border-gray-800" style={{ width: "60%" }}>
+      {/* ══ 2-COLUMN MAIN AREA ══ */}
+      <div className="flex flex-1 min-h-0 md:gap-7 md:py-4 md:px-10">
+
+        {/* ════ LEFT GLASS CARD ════ */}
+        <div className={`flex flex-col overflow-hidden w-full md:flex-[6] rounded-none md:rounded-xl ${mobileTab !== "score" ? "max-md:hidden" : ""}`}
+             style={{
+               background: "rgba(255,255,255,0.04)",
+               backdropFilter: "blur(10px)",
+               WebkitBackdropFilter: "blur(10px)",
+               border: "1px solid rgba(255,255,255,0.09)",
+             }}>
 
           {/* Tabs */}
-          <div className="flex shrink-0 border-b border-gray-800">
+          <div className="flex shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
             {(["batting","bowling"] as const).map(t => (
               <button key={t} onClick={() => setTab(t)}
                 className={`flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors ${
                   tab === t
-                    ? "bg-gray-800 text-emerald-400 border-b-2 border-emerald-500"
+                    ? "bg-white/5 text-emerald-400 border-b-2 border-emerald-500"
                     : "text-gray-500 hover:text-gray-300"
                 }`}>
                 {t}
@@ -269,13 +295,13 @@ export function MatchScreen() {
           {/* Content + tracker fill remaining height */}
           <div className="flex flex-col flex-1 min-h-0">
 
-            {/* ── Scorecard (70%) ── */}
-            <div className="flex-[7] min-h-0 overflow-y-auto">
+            {/* ── Scorecard — natural height, no empty gap after Total ── */}
+            <div className="overflow-y-auto" style={{ maxHeight: "63%" }}>
 
               {tab === "batting" && (
                 <>
-                  {/* Header */}
-                  <div className="flex items-center px-3 py-1 bg-gray-900/60 border-b border-gray-800/60 sticky top-0">
+                  <div className="flex items-center px-3 py-1 sticky top-0"
+                       style={{ background: "rgba(0,0,0,0.35)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                     <span className="flex-1 text-[10px] text-gray-500 font-semibold">Batsman</span>
                     <span className="w-10 text-right text-[10px] text-gray-500">Runs</span>
                     <span className="w-10 text-right text-[10px] text-gray-500">Balls</span>
@@ -283,7 +309,6 @@ export function MatchScreen() {
                     <span className="w-8  text-right text-[10px] text-gray-500">6s</span>
                     <span className="w-12 text-right text-[10px] text-gray-500">SR%</span>
                   </div>
-                  {/* Rows */}
                   {innings.batsmen.map((bat, i) => {
                     const p   = findPlayer(allPlayers, bat.playerId);
                     const str = i === innings.currentBatsmanOnStrike && !innings.isComplete;
@@ -291,11 +316,15 @@ export function MatchScreen() {
                     const sr  = bat.balls > 0 ? Math.round((bat.runs / bat.balls) * 100) : 0;
                     return (
                       <div key={bat.playerId}
-                        className={`flex items-center px-3 py-1.5 border-b border-gray-800/30 text-sm transition-colors ${
-                          str ? "bg-emerald-950/40 border-l-2 border-l-emerald-500" :
-                          ns  ? "bg-gray-800/30  border-l-2 border-l-gray-500" :
+                        className={`flex items-center px-3 py-1.5 text-sm transition-colors ${
+                          str ? "border-l-2 border-l-emerald-500" :
+                          ns  ? "border-l-2 border-l-gray-500" :
                           bat.isOut ? "opacity-40" : ""
-                        }`}>
+                        }`}
+                        style={{
+                          borderBottom: "1px solid rgba(255,255,255,0.04)",
+                          background: str ? "rgba(16,185,129,0.1)" : ns ? "rgba(255,255,255,0.03)" : "transparent",
+                        }}>
                         <div className="flex-1 min-w-0">
                           <span className={`truncate font-medium ${
                             str || ns ? "text-white" : bat.isOut ? "text-gray-500" : "text-gray-300"
@@ -330,18 +359,18 @@ export function MatchScreen() {
                       </div>
                     );
                   })}
-                  {/* Extras */}
-                  <div className="flex items-center px-3 py-1.5 border-b border-gray-800/30 text-sm">
+                  <div className="flex items-center px-3 py-1.5 text-sm"
+                       style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                     <span className="flex-1 text-gray-500">Extras</span>
                     <span className="text-gray-400 tabular-nums">{extras}</span>
                   </div>
-                  {/* Total */}
-                  <div className="flex items-center px-3 py-2 bg-gray-900/60 text-sm">
+                  <div className="flex items-center px-3 py-2 text-sm"
+                       style={{ background: "rgba(0,0,0,0.25)" }}>
                     <span className="flex-1 text-gray-300 font-semibold">
                       Total ({innings.totalWickets} wkts, {formatOvers(totalBalls)} overs)
                     </span>
                     <span className="text-white font-bold text-base tabular-nums">
-                      {innings.totalRuns}
+                      {innings.totalRuns}/{innings.totalWickets}
                     </span>
                   </div>
                 </>
@@ -349,7 +378,8 @@ export function MatchScreen() {
 
               {tab === "bowling" && (
                 <>
-                  <div className="flex items-center px-3 py-1 bg-gray-900/60 border-b border-gray-800/60 sticky top-0">
+                  <div className="flex items-center px-3 py-1 sticky top-0"
+                       style={{ background: "rgba(0,0,0,0.35)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                     <span className="flex-1 text-[10px] text-gray-500 font-semibold">Bowler</span>
                     <span className="w-8  text-right text-[10px] text-gray-500">O</span>
                     <span className="w-10 text-right text-[10px] text-gray-500">R</span>
@@ -364,9 +394,11 @@ export function MatchScreen() {
                       const cur  = b.playerId === curBowler?.playerId;
                       return (
                         <div key={b.playerId}
-                          className={`flex items-center px-3 py-1.5 border-b border-gray-800/30 text-sm ${
-                            cur ? "bg-red-950/30 border-l-2 border-l-red-500" : ""
-                          }`}>
+                          className={`flex items-center px-3 py-1.5 text-sm ${cur ? "border-l-2 border-l-red-500" : ""}`}
+                          style={{
+                            borderBottom: "1px solid rgba(255,255,255,0.04)",
+                            background: cur ? "rgba(239,68,68,0.08)" : "transparent",
+                          }}>
                           <span className={`flex-1 truncate font-medium ${cur ? "text-white" : "text-gray-300"}`}>
                             {p?.shortName ?? b.playerId}
                           </span>
@@ -388,32 +420,26 @@ export function MatchScreen() {
               )}
             </div>
 
-            {/* ── Ball-tracker (30%) — exactly 6 fixed-height lines ── */}
-            <div className="flex-[3] flex flex-col border-t border-gray-800 min-h-0">
-              {/* Title */}
-              <div className="shrink-0 flex items-center gap-3 px-3 py-1 bg-gray-900/70 border-b border-gray-800/60">
-                <span className="text-[11px] font-bold text-gray-300 uppercase tracking-wider">
-                  ▲ Ball-tracker
-                </span>
-                <span className="text-[11px] text-gray-600">
-                  Over {innings.totalOvers + 1}
-                </span>
+            {/* ── Ball-tracker — fills all remaining space below scorecard ── */}
+            <div className="flex-1 flex flex-col min-h-0"
+                 style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+              <div className="shrink-0 flex items-center gap-3 px-3 py-1"
+                   style={{ background: "rgba(0,0,0,0.2)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <span className="text-[11px] font-bold text-gray-300 uppercase tracking-wider">▲ Ball-tracker</span>
+                <span className="text-[11px] text-gray-600">Over {innings.totalOvers + 1}</span>
               </div>
-              {/* 6 equal rows */}
               <div className="flex-1 flex flex-col min-h-0">
                 {Array.from({ length: 6 }).map((_, i) => {
                   const ev = trackerEvents[i];
                   return (
-                    <div key={i}
-                      className="flex-1 flex items-center gap-2 px-3 border-b border-gray-800/25 min-h-0">
+                    <div key={i} className="flex-1 flex items-center gap-2 px-3 min-h-0"
+                         style={{ borderBottom: i < 5 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
                       {ev ? (
                         <>
                           <div className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold ${ballBg(ev.outcome)}`}>
                             {ballLabel(ev.outcome, ev.runsScored)}
                           </div>
-                          <span className="text-[11px] text-gray-400 leading-tight truncate">
-                            {ev.commentary}
-                          </span>
+                          <span className="text-[11px] text-gray-400 leading-tight truncate">{ev.commentary}</span>
                         </>
                       ) : (
                         <>
@@ -428,28 +454,29 @@ export function MatchScreen() {
             </div>
 
           </div>{/* end flex-1 content+tracker */}
-        </div>{/* end left 60% */}
+        </div>{/* end left glass card */}
 
-        {/* ════ RIGHT 40% ════ */}
-        <div className="flex flex-col min-h-0" style={{ width: "40%" }}>
+        {/* ════ RIGHT GLASS CARD ════ */}
+        <div className={`flex flex-col gap-2 p-2 overflow-y-auto md:overflow-hidden w-full md:flex-[4] rounded-none md:rounded-xl ${mobileTab !== "controls" ? "max-md:hidden" : ""}`}
+             style={{
+               background: "rgba(255,255,255,0.04)",
+               backdropFilter: "blur(10px)",
+               WebkitBackdropFilter: "blur(10px)",
+               border: "1px solid rgba(255,255,255,0.09)",
+             }}>
 
-          {/* ── Bowler card ── */}
-          <div className="shrink-0 border-b border-gray-800 px-4 py-3">
+          {/* ── Bowler sub-card ── */}
+          <div className="shrink-0 rounded-lg px-3 py-2.5"
+               style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" />
-                <span className="font-bold text-white text-base truncate">
-                  {bowlerP?.name ?? "—"}
-                </span>
-                <span className="text-[11px] text-gray-500 uppercase shrink-0">
-                  {bowlerP?.bowling.bowlerType ?? ""}
-                </span>
+                <span className="font-bold text-white text-base truncate">{bowlerP?.name ?? "—"}</span>
+                <span className="text-[11px] text-gray-500 uppercase shrink-0">{bowlerP?.bowling.bowlerType ?? ""}</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {curBowler && (
-                  <span className="text-[10px] text-gray-600">
-                    {curBowler.maxOvers - curBowler.overs}ov left
-                  </span>
+                  <span className="text-[10px] text-gray-600">{curBowler.maxOvers - curBowler.overs}ov left</span>
                 )}
                 {!isBatting && (
                   <button
@@ -460,10 +487,8 @@ export function MatchScreen() {
                 )}
               </div>
             </div>
-
             {curBowler && (
               <>
-                {/* Stamina bar */}
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-[10px] text-gray-600 w-14 uppercase tracking-wide shrink-0">Stamina</span>
                   <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
@@ -471,8 +496,7 @@ export function MatchScreen() {
                          style={{ width: `${curBowler.confidence}%` }} />
                   </div>
                 </div>
-                {/* O M R W Econ */}
-                <div className="flex gap-5 border-t border-gray-800 pt-2">
+                <div className="flex gap-5 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
                   {[
                     { label:"O",    value: formatOvers(bowlerBalls) },
                     { label:"M",    value: "0" },
@@ -490,10 +514,8 @@ export function MatchScreen() {
                 </div>
               </>
             )}
-
-            {/* Bowling controls — only when user is bowling */}
             {!isBatting && (
-              <div className="mt-3 pt-3 border-t border-gray-800 space-y-2">
+              <div className="mt-3 pt-3 space-y-2" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
                 <PitchSelector selectedLine={bowlLine} selectedLength={bowlLength}
                   onSelect={(l,len) => { setBowlLine(l); setBowlLength(len); }}
                   disabled={!canPlay} />
@@ -522,143 +544,101 @@ export function MatchScreen() {
                 </div>
               </div>
             )}
-          </div>{/* end bowler card */}
+          </div>{/* end bowler sub-card */}
 
-          {/* ── Striker panel (flex-1) ── */}
-          <div className="flex-1 flex flex-col border-b border-gray-800 px-4 py-3 min-h-0">
-            {/* Header */}
+          {/* ── Striker sub-card ── */}
+          <div className="shrink-0 md:flex-1 flex flex-col rounded-lg px-3 py-2 min-h-0 overflow-hidden"
+               style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.2)" }}>
             <div className="flex items-center justify-between shrink-0 mb-1">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-sm text-emerald-400 font-bold shrink-0">
-                  {innings.currentBatsmanOnStrike + 1}
-                </span>
-                <span className="font-bold text-white text-base truncate">
-                  {strikerP?.name ?? "—"}
-                </span>
-                {onStrike && (
-                  <span className="text-[10px] text-gray-500 shrink-0">
-                    {batsmanStatus(onStrike.balls)}
-                  </span>
-                )}
-                <span className="text-[10px] text-emerald-500 shrink-0">★</span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-xs text-emerald-400 font-bold shrink-0">{innings.currentBatsmanOnStrike + 1}</span>
+                <span className="font-bold text-white text-sm truncate">{strikerP?.name ?? "—"}</span>
+                <span className="text-[9px] text-emerald-500 shrink-0">★</span>
               </div>
-              <div className="shrink-0 text-right">
-                <span className="text-2xl font-extrabold tabular-nums">{onStrike?.runs ?? 0}</span>
-                <span className="text-gray-500 text-sm ml-1">({onStrike?.balls ?? 0})</span>
+              <div className="shrink-0 text-right ml-2">
+                <span className="text-lg font-extrabold tabular-nums">{onStrike?.runs ?? 0}</span>
+                <span className="text-gray-500 text-xs ml-1">({onStrike?.balls ?? 0})</span>
               </div>
             </div>
-
-            {/* Confidence + SR */}
-            {onStrike && (
-              <div className="flex items-center gap-2 shrink-0 mb-2 text-[10px]">
-                <span className="text-gray-600">Conf</span>
-                <div className="w-16 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                  <div className={`h-full ${confBar(onStrike.confidence)}`}
-                       style={{ width: `${onStrike.confidence}%` }} />
-                </div>
-                {onStrike.balls > 0 && (
-                  <span className="text-gray-600 ml-1">
-                    SR {Math.round((onStrike.runs / onStrike.balls) * 100)}
-                    {onStrike.fours > 0 && ` · 4s ${onStrike.fours}`}
-                    {onStrike.sixes > 0 && ` · 6s ${onStrike.sixes}`}
-                  </span>
-                )}
-              </div>
-            )}
-
+            <div className="flex items-center gap-2 shrink-0 mb-1.5 text-[9px]">
+              {onStrike && <span className="text-gray-500">{batsmanStatus(onStrike.balls)}</span>}
+              {onStrike && (
+                <>
+                  <div className="w-12 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div className={`h-full ${confBar(onStrike.confidence)}`}
+                         style={{ width: `${onStrike.confidence}%` }} />
+                  </div>
+                  {onStrike.balls > 0 && (
+                    <span className="text-gray-600">SR {Math.round((onStrike.runs / onStrike.balls) * 100)}</span>
+                  )}
+                </>
+              )}
+            </div>
             {flash && (
-              <div className="shrink-0 text-[10px] text-yellow-300 bg-yellow-900/20 border border-yellow-700/30 rounded px-2 py-0.5 mb-2">
-                ↺ New batsman — aggression reset to Balanced
+              <div className="shrink-0 text-[9px] text-yellow-300 bg-yellow-900/20 border border-yellow-700/30 rounded px-2 py-0.5 mb-1">
+                ↺ New batsman — aggression reset
               </div>
             )}
-
-            {/* Field + slider + keep-strike — fills remaining height */}
-            <div className="flex items-center gap-4 flex-1 min-h-0">
+            <div className="flex items-center gap-3 flex-1 min-h-0 overflow-hidden">
               <div className="shrink-0">
-                <FieldDiagram fieldType={diagField} size={148} showLabel />
+                <FieldDiagram fieldType={diagField} size={118} showLabel />
               </div>
               {isBatting ? (
                 <>
-                  <VerticalAggSlider
-                    value={sRpo}
-                    onChange={v => onStrike && setRpoFor(onStrike.playerId, v)}
-                    disabled={!canPlay}
-                    height={143}
-                  />
-                  <div className="flex flex-col items-center gap-1.5 shrink-0">
-                    <span className="text-[9px] text-gray-500 text-center leading-tight">
-                      Keep<br />Strike
-                    </span>
-                    <button
-                      onClick={() => setKeepStrike(!keepStrike)}
-                      disabled={!canPlay}
-                      className={`px-2.5 py-1 text-[10px] font-bold rounded border transition-all ${
-                        keepStrike
-                          ? "bg-blue-700/50 border-blue-500 text-blue-200"
-                          : "bg-gray-800 border-gray-600 text-gray-500"
+                  <VerticalAggSlider value={sRpo} onChange={v => onStrike && setRpoFor(onStrike.playerId, v)}
+                    disabled={!canPlay} height={113} />
+                  <div className="flex flex-col items-center gap-1 shrink-0">
+                    <span className="text-[8px] text-gray-500 text-center leading-tight">Keep<br />Strike</span>
+                    <button onClick={() => setKeepStrike(!keepStrike)} disabled={!canPlay}
+                      className={`px-2 py-0.5 text-[9px] font-bold rounded border transition-all ${
+                        keepStrike ? "bg-blue-700/50 border-blue-500 text-blue-200" : "bg-gray-800 border-gray-600 text-gray-500"
                       } ${!canPlay ? "opacity-40 cursor-not-allowed" : ""}`}>
                       {keepStrike ? "ON ✓" : "OFF"}
                     </button>
                   </div>
                 </>
               ) : (
-                <div className="text-[10px] text-gray-600">
-                  <p>Field: <span className="text-white font-medium capitalize">{field}</span></p>
+                <div className="text-[9px] text-gray-500">
+                  Field: <span className="text-gray-300 capitalize">{field}</span>
                 </div>
               )}
             </div>
-          </div>{/* end striker */}
+          </div>{/* end striker sub-card */}
 
-          {/* ── Non-striker panel (flex-1) ── */}
-          <div className="flex-1 flex flex-col px-4 py-3 min-h-0">
-            {/* Header */}
+          {/* ── Non-striker sub-card ── */}
+          <div className="shrink-0 md:flex-1 flex flex-col rounded-lg px-3 py-2 min-h-0 overflow-hidden"
+               style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
             <div className="flex items-center justify-between shrink-0 mb-1">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-sm text-gray-500 font-bold shrink-0">
-                  {innings.currentBatsmanNonStrike + 1}
-                </span>
-                <span className="font-medium text-gray-200 text-base truncate">
-                  {nonStrikerP?.name ?? "—"}
-                </span>
-                {nonStrike && (
-                  <span className="text-[10px] text-gray-600 shrink-0">
-                    {batsmanStatus(nonStrike.balls)}
-                  </span>
-                )}
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-xs text-gray-500 font-bold shrink-0">{innings.currentBatsmanNonStrike + 1}</span>
+                <span className="font-medium text-gray-200 text-sm truncate">{nonStrikerP?.name ?? "—"}</span>
               </div>
-              <div className="shrink-0 text-right">
-                <span className="text-2xl font-bold tabular-nums text-gray-300">{nonStrike?.runs ?? 0}</span>
-                <span className="text-gray-600 text-sm ml-1">({nonStrike?.balls ?? 0})</span>
+              <div className="shrink-0 text-right ml-2">
+                <span className="text-lg font-bold tabular-nums text-gray-300">{nonStrike?.runs ?? 0}</span>
+                <span className="text-gray-600 text-xs ml-1">({nonStrike?.balls ?? 0})</span>
               </div>
             </div>
-
-            <p className="text-[10px] text-gray-600 shrink-0 mb-2">
-              Batting Avg: {nsAvg}
-              {nsSR !== null && ` · SR: ${nsSR}`}
-              {nonStrikerP && ` · ${nonStrikerP.role}`}
-            </p>
-
-            {/* Field + slider */}
-            <div className="flex items-center gap-4 flex-1 min-h-0">
-              <div className="shrink-0">
-                <FieldDiagram fieldType={diagField} size={130} showLabel />
-              </div>
+            <div className="flex items-center gap-2 shrink-0 mb-1.5 text-[9px]">
+              {nonStrike && <span className="text-gray-500">{batsmanStatus(nonStrike.balls)}</span>}
+              {nonStrike && nonStrike.balls > 0 && (
+                <span className="text-gray-600">SR {Math.round((nonStrike.runs / nonStrike.balls) * 100)}</span>
+              )}
+              {nonStrikerP && <span className="text-gray-700 truncate">{nonStrikerP.role}</span>}
+            </div>
+            <div className="flex items-center gap-3 flex-1 min-h-0 overflow-hidden">
+              <FieldDiagram fieldType={diagField} size={108} showLabel />
               {isBatting && nonStrike && (
-                <VerticalAggSlider
-                  value={nsRpo}
-                  onChange={v => setRpoFor(nonStrike.playerId, v)}
-                  disabled={!canPlay}
-                  height={125}
-                />
+                <VerticalAggSlider value={nsRpo} onChange={v => setRpoFor(nonStrike.playerId, v)}
+                  disabled={!canPlay} height={103} />
               )}
             </div>
-          </div>{/* end non-striker */}
+          </div>{/* end non-striker sub-card */}
 
-        </div>{/* end right 40% */}
+        </div>{/* end right glass card */}
       </div>{/* end 2-col */}
 
       {/* ══ FULL-WIDTH BUTTON at very bottom ══ */}
-      <div className="shrink-0 px-4 py-3 border-t border-gray-800 bg-gray-950">
+      <div className="shrink-0 px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.35)" }}>
         <button
           onClick={handleNextBall}
           disabled={!canPlay}

@@ -72,7 +72,7 @@ export function PitchSelector({ selectedLine, selectedLength, onSelect, disabled
                   key={`${ln}-${len}`}
                   onClick={() => !disabled && onSelect(ln, len)}
                   disabled={disabled}
-                  className={`flex-1 py-3 flex items-center justify-center transition-all ${
+                  className={`flex-1 py-1.5 flex items-center justify-center transition-all ${
                     disabled ? "cursor-not-allowed" : "cursor-pointer"
                   } ${
                     isSelected
