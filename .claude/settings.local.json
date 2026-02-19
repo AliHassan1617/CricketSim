@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(npx --yes create-vite@latest temp-scaffold --template react-ts:*)",
+      "Bash(npm run build:*)"
+    ]
+  }
+}
