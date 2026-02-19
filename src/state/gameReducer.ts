@@ -20,6 +20,7 @@ export const initialState: MatchState = {
   currentInnings: 1,
   needsBowlerChange: false,
   selectedPlayerId: null,
+  isSimulating: false,
 };
 
 /**
@@ -499,6 +500,10 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
 
     case "START_SECOND_INNINGS": {
       return { ...state, currentInnings: 2 };
+    }
+
+    case "SET_SIMULATING": {
+      return { ...state, isSimulating: action.payload.value };
     }
 
     case "END_MATCH": {

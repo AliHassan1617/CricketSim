@@ -53,7 +53,7 @@ const OUTCOMES: BallOutcome[] = [
 // even when BatScore >> BowlScore (net > 30, base wicket = 1), Aggressive
 // pushes wicket weight to ~9 so the chance stays around 10% per ball.
 const FLAT_WICKET_BONUS: Record<BattingIntent, number> = {
-  [BattingIntent.Aggressive]: 8,
+  [BattingIntent.Aggressive]: 5,
   [BattingIntent.Balanced]:   1,
   [BattingIntent.Defensive]:  0,
 };

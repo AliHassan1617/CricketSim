@@ -21,4 +21,5 @@ export type GameAction =
   | { type: "END_INNINGS" }
   | { type: "START_SECOND_INNINGS" }
   | { type: "END_MATCH" }
+  | { type: "SET_SIMULATING"; payload: { value: boolean } }
   | { type: "RESET_GAME" };

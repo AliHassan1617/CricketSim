@@ -8,7 +8,7 @@ import {
   PitchType,
   SidebarTab,
 } from "./enums";
-import { Player, Team } from "./player";
+import { Team } from "./player";
 
 export interface BallEvent {
   ballNumber: number;
@@ -110,4 +110,7 @@ export interface MatchState {
 
   // Player profile modal
   selectedPlayerId: string | null;
+
+  // Testing / simulation mode
+  isSimulating: boolean;
 }

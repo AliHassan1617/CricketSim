@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useGame } from "../state/gameContext";
 import { MiniScorecard } from "../components/MiniScorecard";
 import { PitchBadge } from "../components/PitchBadge";
@@ -7,6 +8,16 @@ export function InningsSummaryScreen() {
   const { state, dispatch } = useGame();
   const innings = state.firstInnings;
   const allPlayers = getAllPlayers(state);
+
+  // Auto-advance to 2nd innings when simulating
+  useEffect(() => {
+    if (!state.isSimulating) return;
+    const t = setTimeout(() => {
+      dispatch({ type: "START_SECOND_INNINGS" });
+      dispatch({ type: "START_INNINGS" });
+    }, 0);
+    return () => clearTimeout(t);
+  }, [state.isSimulating]);
 
   if (!innings) return null;
 

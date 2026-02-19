@@ -194,6 +194,21 @@ export function simulateBall(
     outcome = BallOutcome.Dot;
   }
 
+  // New batsman grace — first 4 balls have heavily suppressed dismissal risk.
+  // Prevents unrealistic first-ball chain dismissals of tail-enders; golden
+  // ducks can still happen but at much lower rates than unprotected probability.
+  //   Ball 1 (balls=0): only 28% of wickets stand  → ~7% golden duck rate
+  //   Ball 2 (balls=1): 55% of wickets stand
+  //   Ball 3 (balls=2): 76% of wickets stand
+  //   Ball 4 (balls=3): 90% of wickets stand
+  if (outcome === BallOutcome.Wicket && !isNoBall) {
+    const b = batsman.balls;
+    if (b < 4) {
+      const keepProb = b === 0 ? 0.28 : b === 1 ? 0.55 : b === 2 ? 0.76 : 0.90;
+      if (Math.random() > keepProb) outcome = BallOutcome.Dot;
+    }
+  }
+
   // 8. Apply Running Between Wickets post-processing
   if (outcome !== BallOutcome.Wicket && outcome !== BallOutcome.Dot) {
     outcome = applyRunningBetweenWickets(outcome, batsmanStats.batting.runningBetweenWickets);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useGame } from "../state/gameContext";
-import { BallOutcome, BattingIntent, FieldType } from "../types/enums";
+import { BallOutcome, BattingIntent, BowlerLine, BowlerType, FieldType } from "../types/enums";
 import { simulateBall } from "../engine/index";
 import {
   getActiveInnings,
@@ -48,24 +48,149 @@ function ballLabel(o: BallOutcome, runs: number) {
        : o === BallOutcome.Six    ? "6" : o === BallOutcome.Dot  ? "·"
        : String(runs);
 }
-function getAIIntent(runs: number, wkts: number, overs: number, target?: number): BattingIntent {
+/**
+ * AI batting intent — per-ball decision using match situation + player character.
+ * batsmanBalls / batsmanPower / batsmanConfidence give individual flavour.
+ */
+function getAIIntent(
+  runs: number, wkts: number, overs: number,
+  batsmanBalls: number, batsmanPower: number, batsmanConfidence: number,
+  target?: number,
+): BattingIntent {
+  // New batsman: be cautious for the first 3 balls no matter what
+  if (batsmanBalls < 3) return BattingIntent.Defensive;
+  // Still settling (balls 3-7, low confidence): stay balanced
+  if (batsmanBalls < 7 && batsmanConfidence < 55) return BattingIntent.Balanced;
+
+  // naturalAgg: high-power player is innately more aggressive (0–1 scale)
+  const naturalAgg = batsmanPower / 100;
+
   if (target !== undefined) {
-    const rr = (10 - overs) > 0 ? (target - runs) / (10 - overs) : 99;
-    if (rr > 12) return BattingIntent.Aggressive;
-    if (rr > 8)  return Math.random() < 0.6 ? BattingIntent.Aggressive : BattingIntent.Balanced;
-    if (rr < 5)  return Math.random() < 0.5 ? BattingIntent.Defensive  : BattingIntent.Balanced;
-    return BattingIntent.Balanced;
+    // CHASING — use per-ball required run rate for precision
+    const remainingBalls = 60 - overs * 6;
+    const reqRPO = remainingBalls > 0 ? ((target - runs) / remainingBalls) * 6 : 99;
+
+    if (reqRPO > 14) return BattingIntent.Aggressive;
+    if (reqRPO > 11) return BattingIntent.Aggressive;
+    if (reqRPO > 9)  return Math.random() < 0.85 ? BattingIntent.Aggressive : BattingIntent.Balanced;
+    if (reqRPO > 7)  return Math.random() < 0.60 ? BattingIntent.Aggressive : BattingIntent.Balanced;
+    if (reqRPO > 5.5) return Math.random() < 0.38 ? BattingIntent.Aggressive : BattingIntent.Balanced;
+    // Comfortable chase — keep rotating strike, never go fully defensive
+    return Math.random() < 0.28 ? BattingIntent.Aggressive : BattingIntent.Balanced;
   }
-  if (overs >= 8)  return Math.random() < 0.7 ? BattingIntent.Aggressive : BattingIntent.Balanced;
-  if (overs >= 5)  return Math.random() < 0.4 ? BattingIntent.Aggressive : BattingIntent.Balanced;
-  if (wkts  >= 3)  return Math.random() < 0.6 ? BattingIntent.Defensive  : BattingIntent.Balanced;
-  return BattingIntent.Balanced;
+
+  // FIRST INNINGS — build a big total
+  if (overs >= 9) return BattingIntent.Aggressive; // last over: always swing
+
+  if (overs >= 7) {
+    // Death overs: near-always aggressive unless pure tail
+    if (wkts >= 8) return BattingIntent.Balanced;
+    return Math.random() < (0.80 + naturalAgg * 0.15) ? BattingIntent.Aggressive : BattingIntent.Balanced;
+  }
+
+  if (overs >= 5) {
+    // Mid-late: push hard — even after wickets, keep scoring
+    if (wkts >= 7) return Math.random() < 0.55 ? BattingIntent.Aggressive : BattingIntent.Balanced;
+    if (wkts >= 4) return Math.random() < (0.52 + naturalAgg * 0.2) ? BattingIntent.Aggressive : BattingIntent.Balanced;
+    return Math.random() < (0.58 + naturalAgg * 0.2) ? BattingIntent.Aggressive : BattingIntent.Balanced;
+  }
+
+  // Overs 2–5: middle powerplay — no longer go defensive on wickets; keep scoring
+  if (wkts >= 5) return Math.random() < 0.40 ? BattingIntent.Aggressive : BattingIntent.Balanced;
+  if (wkts >= 3) return Math.random() < (0.38 + naturalAgg * 0.18) ? BattingIntent.Aggressive : BattingIntent.Balanced;
+
+  // Set batsman + confident: start accelerating
+  if (batsmanBalls > 10 && batsmanConfidence > 62)
+    return Math.random() < (0.38 + naturalAgg * 0.22) ? BattingIntent.Aggressive : BattingIntent.Balanced;
+
+  // Early, fresh, wickets in hand
+  return Math.random() < (0.22 + naturalAgg * 0.15) ? BattingIntent.Aggressive : BattingIntent.Balanced;
 }
-function getAIField(wkts: number, overs: number): FieldType {
-  if (wkts >= 5)  return FieldType.Defensive;
-  if (overs < 3)  return Math.random() < 0.5 ? FieldType.Attacking : FieldType.Balanced;
-  if (overs >= 8) return Math.random() < 0.4 ? FieldType.Attacking : FieldType.Balanced;
+
+/**
+ * AI fielding choice — reacts to batsman freshness, match phase, and chase context.
+ */
+function getAIField(
+  wkts: number, overs: number,
+  strikerBalls: number, strikerConfidence: number,
+  target?: number, currentRuns?: number,
+): FieldType {
+  // New batsman is always most vulnerable — always attack
+  if (strikerBalls < 5) return FieldType.Attacking;
+
+  // Tail is exposed — pack the field to save runs, not chase wickets
+  if (wkts >= 8) return FieldType.Defensive;
+
+  // Death overs: press for wickets or protect a big lead
+  if (overs >= 8) {
+    if (target !== undefined && currentRuns !== undefined) {
+      const rem = 60 - overs * 6;
+      const reqRPO = rem > 0 ? ((target - currentRuns) / rem) * 6 : 99;
+      if (reqRPO < 4.5) return FieldType.Defensive; // user is comfortably ahead
+    }
+    return Math.random() < 0.68 ? FieldType.Attacking : FieldType.Balanced;
+  }
+
+  // Powerplay: aggressive to take wickets early
+  if (overs < 3) return Math.random() < 0.62 ? FieldType.Attacking : FieldType.Balanced;
+
+  // Very settled, dominant batsman → concede singles, block boundaries
+  if (strikerBalls > 22 && strikerConfidence > 72)
+    return Math.random() < 0.50 ? FieldType.Defensive : FieldType.Balanced;
+
+  // Settled batsman: try to break them with attacking field
+  if (strikerBalls > 12 && strikerConfidence > 60)
+    return Math.random() < 0.42 ? FieldType.Attacking : FieldType.Balanced;
+
   return FieldType.Balanced;
+}
+
+/**
+ * AI bowling line — targets the batsman's weaker side and varies for pace/spin/death.
+ */
+function getAIBowlingLine(
+  batsmanPower: number, batsmanOffside: number, batsmanLegside: number,
+  bowlerType: BowlerType, overs: number,
+): BowlerLine {
+  // Target weaker side
+  if (batsmanOffside < batsmanLegside - 12)
+    return Math.random() < 0.65 ? BowlerLine.OutsideOff : BowlerLine.OnStumps;
+  if (batsmanLegside < batsmanOffside - 12)
+    return Math.random() < 0.55 ? BowlerLine.OnPads : BowlerLine.OnStumps;
+
+  // Death overs: vary length aggressively to disrupt timing
+  if (overs >= 8) {
+    const r = Math.random();
+    if (r < 0.30) return BowlerLine.Short;
+    if (r < 0.50) return BowlerLine.Full;
+    if (r < 0.80) return BowlerLine.OnStumps;
+    return BowlerLine.OutsideOff;
+  }
+
+  // Spinners: attack the stumps, draw the batsman forward
+  if (bowlerType === BowlerType.Spin) {
+    const r = Math.random();
+    if (r < 0.40) return BowlerLine.OnStumps;
+    if (r < 0.65) return BowlerLine.OutsideOff;
+    if (r < 0.82) return BowlerLine.OnPads;
+    return BowlerLine.Full;
+  }
+
+  // High-power batsman: mix short + full to disrupt rhythm
+  if (batsmanPower > 70) {
+    const r = Math.random();
+    if (r < 0.25) return BowlerLine.Short;
+    if (r < 0.45) return BowlerLine.Full;
+    if (r < 0.78) return BowlerLine.OnStumps;
+    return BowlerLine.OutsideOff;
+  }
+
+  // Standard pace: stay on/outside off stump
+  const r = Math.random();
+  if (r < 0.42) return BowlerLine.OnStumps;
+  if (r < 0.72) return BowlerLine.OutsideOff;
+  if (r < 0.87) return BowlerLine.Full;
+  return BowlerLine.Short;
 }
 
 // ─── Vertical aggression slider ───────────────────────────────────────────────
@@ -125,19 +250,37 @@ export function MatchScreen() {
   const [tab, setTab]               = useState<"batting"|"bowling">("batting");
   const [mobileTab, setMobileTab]   = useState<"score"|"controls">("controls");
 
-  const matchTime    = useRef(new Date().toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }));
-  const innings      = getActiveInnings(state);
-  const prevStriker  = useRef<string|null>(null);
-  const strikerId    = innings?.batsmen[innings?.currentBatsmanOnStrike]?.playerId ?? null;
+  const matchTime       = useRef(new Date().toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }));
+  const innings         = getActiveInnings(state);
+  const prevStriker     = useRef<string|null>(null);
+  const strikerId       = innings?.batsmen[innings?.currentBatsmanOnStrike]?.playerId ?? null;
+  const handleNextBallRef = useRef<() => void>(() => {});
 
+  // Auto-bowler: fires when a new over starts and an AI-controlled side needs a bowler.
+  // Covers: user batting (AI always auto-picks) AND simulate mode (AI picks for user bowling too).
   useEffect(() => {
-    if (!innings || !state.needsBowlerChange || !innings.isUserBatting) return;
+    if (!innings || !state.needsBowlerChange) return;
+    if (!innings.isUserBatting && !state.isSimulating) return;
     const avail = getAvailableBowlers(innings);
-    if (avail.length > 0) {
-      const pick = avail[Math.floor(Math.random() * avail.length)];
-      dispatch({ type: "CHANGE_BOWLER", payload: { bowlerId: pick.playerId } });
-    }
-  }, [state.needsBowlerChange, innings?.isUserBatting]);
+    if (avail.length === 0) return;
+    const players = getAllPlayers(state);
+    const isDeath = innings.totalOvers >= 8;
+    // Score bowlers by situation: death overs favour deathBowling + variation
+    const scored = avail.map(b => {
+      const p = players.find(pl => pl.id === b.playerId);
+      if (!p) return { b, score: 0 };
+      const { mainSkill, control, variation, deathBowling, lineDiscipline } = p.bowling;
+      const score = isDeath
+        ? mainSkill + deathBowling * 1.5 + variation * 0.7
+        : mainSkill + control * 0.8 + lineDiscipline * 0.5 + variation * 0.4;
+      return { b, score };
+    });
+    scored.sort((a, z) => z.score - a.score);
+    // Pick from top 2 to stay unpredictable
+    const topN = scored.slice(0, Math.min(2, scored.length));
+    const pick = topN[Math.floor(Math.random() * topN.length)];
+    dispatch({ type: "CHANGE_BOWLER", payload: { bowlerId: pick.b.playerId } });
+  }, [state.needsBowlerChange, innings?.isUserBatting, state.isSimulating]);
 
   useEffect(() => {
     const prev = prevStriker.current;
@@ -149,6 +292,16 @@ export function MatchScreen() {
       return () => clearTimeout(t);
     }
   }, [strikerId]);
+
+  // Simulate loop — fires handleNextBall as fast as React can process when active
+  useEffect(() => {
+    if (!state.isSimulating) return;
+    const inns = getActiveInnings(state);
+    if (!inns || inns.isComplete || state.needsBowlerChange) return;
+    if (!getCurrentBatsmanOnStrike(inns) || !getCurrentBowler(inns)) return;
+    const t = setTimeout(() => { handleNextBallRef.current(); }, 8);
+    return () => clearTimeout(t);
+  }, [state]);
 
   if (!innings) return null;
 
@@ -180,16 +333,33 @@ export function MatchScreen() {
     const blStats = findPlayer(allPlayers, curBowler.playerId);
     if (!bsStats || !blStats) return;
 
-    let intent = rpoToIntent(sRpo);
+    // In simulate mode AI controls everything; otherwise user controls their side
+    const aiIntent = getAIIntent(
+      innings.totalRuns, innings.totalWickets, innings.totalOvers,
+      onStrike.balls, bsStats.batting.power, onStrike.confidence,
+      innings.target,
+    );
+    const aiLine = getAIBowlingLine(
+      bsStats.batting.power, bsStats.batting.offsideSkill, bsStats.batting.legsideSkill,
+      blStats.bowling.bowlerType, innings.totalOvers,
+    );
+
+    let intent = isBatting || state.isSimulating ? aiIntent : rpoToIntent(sRpo);
     let ef     = field;
-    let line   = undefined;
+    let line: BowlerLine | undefined = undefined;
 
     if (isBatting) {
-      ef = getAIField(innings.totalWickets, innings.totalOvers);
+      // AI is bowling — AI picks field and line
+      ef = getAIField(
+        innings.totalWickets, innings.totalOvers,
+        onStrike.balls, onStrike.confidence,
+        innings.target, innings.totalRuns,
+      );
       setAiField(ef);
+      line = aiLine;
     } else {
-      intent = getAIIntent(innings.totalRuns, innings.totalWickets, innings.totalOvers, innings.target);
-      line   = mapToEngineLine(bowlLine, bowlLength);
+      // AI is batting — AI picks intent; user picks line (or AI picks in sim mode)
+      line = state.isSimulating ? aiLine : mapToEngineLine(bowlLine, bowlLength);
     }
 
     let ev = simulateBall(onStrike, curBowler, bsStats, blStats,
@@ -201,6 +371,9 @@ export function MatchScreen() {
     }
     dispatch({ type: "PROCESS_BALL_RESULT", payload: { event: ev } });
   };
+
+  // Keep ref pointing at latest handleNextBall (avoids stale closure in simulate loop)
+  handleNextBallRef.current = handleNextBall;
 
   // last 6 events for the tracker (sliding window)
   const trackerEvents = innings.currentOverEvents.slice(-6);
@@ -249,6 +422,17 @@ export function MatchScreen() {
           <span className="md:hidden text-[10px] text-gray-500">
             {isBatting ? "Batting" : "Bowling"}
           </span>
+          {/* Simulate button — testing tool */}
+          <button
+            onClick={() => dispatch({ type: "SET_SIMULATING", payload: { value: !state.isSimulating } })}
+            className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide transition-colors ${
+              state.isSimulating
+                ? "bg-orange-500/20 text-orange-400 border border-orange-500/40"
+                : "bg-gray-700/60 text-gray-400 border border-gray-600/40 hover:text-white"
+            }`}
+          >
+            {state.isSimulating ? "⏹ Stop" : "⚡ Sim"}
+          </button>
         </div>
       </div>
 
