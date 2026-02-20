@@ -414,7 +414,9 @@ export function MatchScreen() {
   const [mobileTab, setMobileTab]   = useState<"score"|"controls">("controls");
   const [overSummary, setOverSummary] = useState<{ over: number; runs: number; wickets: number; bowler: string } | null>(null);
   const [milestone, setMilestone]   = useState<string | null>(null);
-  const [dataPanel, setDataPanel]   = useState<"winprob"|"worm"|"rpo"|null>(null);
+  const [isPaused, setIsPaused]           = useState(false);
+  const [pauseView, setPauseView]         = useState<"menu"|"scorecard"|"worm">("menu");
+  const [simOverTarget, setSimOverTarget] = useState<number | null>(null);
   const prevOverRef    = useRef(0);
   const milestoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -516,9 +518,15 @@ export function MatchScreen() {
     const inns = getActiveInnings(state);
     if (!inns || inns.isComplete || state.needsBowlerChange) return;
     if (!getCurrentBatsmanOnStrike(inns) || !getCurrentBowler(inns)) return;
+    // Stop when simulating a single over and the target over is reached
+    if (simOverTarget !== null && inns.totalOvers >= simOverTarget) {
+      dispatch({ type: "SET_SIMULATING", payload: { value: false } });
+      setSimOverTarget(null);
+      return;
+    }
     const t = setTimeout(() => { handleNextBallRef.current(); }, 8);
     return () => clearTimeout(t);
-  }, [state]);
+  }, [state, simOverTarget]);
 
   if (!innings) return null;
 
@@ -677,17 +685,6 @@ export function MatchScreen() {
           <span className="md:hidden text-[10px] text-gray-500">
             {isBatting ? "Batting" : "Bowling"}
           </span>
-          {/* Simulate button — testing tool */}
-          <button
-            onClick={() => dispatch({ type: "SET_SIMULATING", payload: { value: !state.isSimulating } })}
-            className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide transition-colors ${
-              state.isSimulating
-                ? "bg-orange-500/20 text-orange-400 border border-orange-500/40"
-                : "bg-gray-700/60 text-gray-400 border border-gray-600/40 hover:text-white"
-            }`}
-          >
-            {state.isSimulating ? "⏹ Stop" : "⚡ Sim"}
-          </button>
         </div>
 
         {/* PowerPlay badge */}
@@ -1174,99 +1171,34 @@ export function MatchScreen() {
         })}
       </div>
 
-      {/* ══ DATA PANEL (shown when a chart button is active) ══ */}
-      {dataPanel && (
-        <div className="shrink-0 px-4 py-3 overflow-hidden"
-             style={{ borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.4)" }}>
-
-          {/* Win probability panel */}
-          {dataPanel === "winprob" && (
-            isSecond && innings.target !== undefined ? (() => {
-              const wp = computeWinProb(innings.totalRuns, innings.target, totalBalls, innings.matchOvers, innings.totalWickets);
-              return (
-                <div className="space-y-2">
-                  <p className="text-[9px] text-gray-500 uppercase tracking-widest">Win Probability</p>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 h-3 bg-gray-800 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-500"
-                           style={{ width: `${wp}%`, background: wp > 60 ? "linear-gradient(90deg,#10b981,#34d399)" : wp > 40 ? "linear-gradient(90deg,#f59e0b,#fbbf24)" : "linear-gradient(90deg,#ef4444,#f87171)" }} />
-                    </div>
-                    <span className="text-2xl font-black tabular-nums w-14 text-right shrink-0"
-                          style={{ color: wp > 60 ? "#34d399" : wp > 40 ? "#fbbf24" : "#f87171" }}>
-                      {wp}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-[10px] text-gray-600">
-                    <span>{innings.battingTeamName}</span>
-                    <span>Need {innings.target - innings.totalRuns} off {innings.matchOvers * 6 - totalBalls} balls · {10 - innings.totalWickets} wkts left</span>
-                  </div>
-                </div>
-              );
-            })() : (
-              <p className="text-[11px] text-gray-600 text-center py-2">Available during 2nd innings</p>
-            )
-          )}
-
-          {/* Worm chart panel */}
-          {dataPanel === "worm" && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[9px] text-gray-500 uppercase tracking-widest">Score Progression</p>
-                {isSecond && state.firstInnings && (
-                  <div className="flex gap-3">
-                    <div className="flex items-center gap-1">
-                      <div className="w-5 h-[2px] rounded" style={{ background: "#10b981" }} />
-                      <span className="text-[8px] text-gray-500">{innings.battingTeamName}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-5 h-[2px] rounded" style={{ background: "#6b7280", borderTop: "2px dashed #6b7280" }} />
-                      <span className="text-[8px] text-gray-500">{state.firstInnings.battingTeamName}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <WormChart innings={innings} firstInnings={isSecond ? state.firstInnings : null} matchOvers={innings.matchOvers} />
-            </div>
-          )}
-
-          {/* Runs-per-over bar chart panel */}
-          {dataPanel === "rpo" && (
-            <div>
-              <p className="text-[9px] text-gray-500 uppercase tracking-widest mb-2">Runs Per Over</p>
-              <RPOChart innings={innings} />
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ══ BOTTOM ACTION BAR ══ */}
-      <div className="shrink-0 px-3 py-2.5 flex items-center gap-2"
-           style={{ borderTop: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.35)" }}>
+      <div className="shrink-0 px-3 pt-2.5 flex items-center gap-2"
+           style={{
+             borderTop: "1px solid rgba(255,255,255,0.07)",
+             background: "rgba(0,0,0,0.35)",
+             paddingBottom: "max(10px, env(safe-area-inset-bottom, 10px))",
+           }}>
 
-        {/* Data panel toggle buttons */}
-        {(["winprob", "worm", "rpo"] as const).map((key, idx) => {
-          const labels = ["Win%", "Worm", "R/O"];
-          const active = dataPanel === key;
-          return (
-            <button key={key}
-              onClick={() => setDataPanel(p => p === key ? null : key)}
-              className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all ${
-                active
-                  ? "bg-white/15 text-white border border-white/30"
-                  : "bg-white/[0.04] text-gray-500 border border-white/10 hover:text-gray-300"
-              }`}>
-              {labels[idx]}
-            </button>
-          );
-        })}
+        {/* Pause button */}
+        <button
+          onClick={() => {
+            if (state.isSimulating) dispatch({ type: "SET_SIMULATING", payload: { value: false } });
+            setSimOverTarget(null);
+            setIsPaused(true);
+            setPauseView("menu");
+          }}
+          className="flex-1 py-3 rounded-lg text-sm font-bold uppercase tracking-wide transition-all bg-white/[0.06] text-gray-300 border border-white/10 hover:text-white hover:bg-white/10">
+          ⏸ Pause
+        </button>
 
-        {/* Primary action — takes remaining ~50% of width */}
+        {/* Primary action */}
         <button
           onClick={handleNextBall}
           disabled={!canPlay}
-          className={`flex-[2.2] py-2 rounded-lg text-sm font-black uppercase tracking-widest transition-all ${
+          className={`flex-[2.5] py-3.5 rounded-lg text-sm font-black uppercase tracking-widest transition-all ${
             canPlay
-              ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/40 active:scale-[0.98]"
+              ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/40 active:scale-[0.97]"
               : "bg-gray-800 text-gray-600 cursor-not-allowed"
           }`}>
           {innings.isComplete        ? "Complete"
@@ -1283,6 +1215,264 @@ export function MatchScreen() {
           players={allPlayers}
           onSelect={id => dispatch({ type:"CHANGE_BOWLER", payload:{ bowlerId: id } })}
         />
+      )}
+
+      {/* ══ PAUSE OVERLAY ══ */}
+      {isPaused && (
+        <div className="fixed inset-0 z-50 flex flex-col text-white"
+             style={{ background: "linear-gradient(135deg,#0a0f1e 0%,#0d1117 50%,#0a1628 100%)" }}>
+
+          {/* Overlay header */}
+          <div className="shrink-0 flex items-center gap-3 px-4 py-4"
+               style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+            <button
+              onClick={() => pauseView === "menu" ? setIsPaused(false) : setPauseView("menu")}
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors text-lg">
+              {pauseView === "menu" ? "✕" : "←"}
+            </button>
+            <h2 className="flex-1 text-center font-bold text-white">
+              {pauseView === "menu" ? "Paused" : pauseView === "scorecard" ? "Scorecard" : "Score Progression"}
+            </h2>
+            <div className="w-9" />{/* spacer to centre the title */}
+          </div>
+
+          {/* ── Pause menu ── */}
+          {pauseView === "menu" && (
+            <div className="flex-1 flex flex-col p-5 gap-3 overflow-y-auto">
+
+              {/* Live score summary */}
+              <div className="rounded-xl p-4 text-center mb-1"
+                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">
+                  {innings.battingTeamName} vs {innings.bowlingTeamName}
+                </p>
+                <p className="text-3xl font-black text-emerald-300 tabular-nums">
+                  {innings.totalRuns}/{innings.totalWickets}
+                </p>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  {formatOvers(totalBalls)} overs
+                  {reqRate !== null && (
+                    <span className={`ml-2 font-bold ${rrColor(reqRate)}`}>
+                      · Need {reqRate.toFixed(1)}/ov
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              {/* Resume */}
+              <button
+                onClick={() => setIsPaused(false)}
+                className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-base transition-colors active:scale-[0.98]">
+                ▶ Resume
+              </button>
+
+              {/* View screens */}
+              <button
+                onClick={() => setPauseView("scorecard")}
+                className="w-full py-4 rounded-xl text-white font-bold text-base transition-colors active:scale-[0.98]"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                Scorecard
+              </button>
+              <button
+                onClick={() => setPauseView("worm")}
+                className="w-full py-4 rounded-xl text-white font-bold text-base transition-colors active:scale-[0.98]"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                Score Progression / Worm
+              </button>
+
+              <div className="h-px my-1" style={{ background: "rgba(255,255,255,0.08)" }} />
+
+              {/* Simulate controls */}
+              <button
+                onClick={() => {
+                  if (!canPlay) return;
+                  setSimOverTarget(innings.totalOvers + 1);
+                  dispatch({ type: "SET_SIMULATING", payload: { value: true } });
+                  setIsPaused(false);
+                }}
+                disabled={!canPlay}
+                className="w-full py-4 rounded-xl font-bold text-base transition-colors active:scale-[0.98] disabled:opacity-40"
+                style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#93c5fd" }}>
+                Simulate 1 Over
+              </button>
+              <button
+                onClick={() => {
+                  if (!canPlay) return;
+                  dispatch({ type: "SET_SIMULATING", payload: { value: true } });
+                  setIsPaused(false);
+                }}
+                disabled={!canPlay}
+                className="w-full py-4 rounded-xl font-bold text-base transition-colors active:scale-[0.98] disabled:opacity-40"
+                style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#93c5fd" }}>
+                Simulate Entire Innings
+              </button>
+            </div>
+          )}
+
+          {/* ── Full scorecard ── */}
+          {pauseView === "scorecard" && (
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+
+              {/* Batting card */}
+              <div className="rounded-xl overflow-hidden"
+                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                <div className="px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-emerald-400"
+                     style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                  Batting — {innings.battingTeamName}
+                </div>
+                <div className="flex items-center px-4 py-1.5"
+                     style={{ background: "rgba(0,0,0,0.3)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <span className="flex-1 text-[10px] text-gray-500">Batsman</span>
+                  <span className="w-10 text-right text-[10px] text-gray-500">R</span>
+                  <span className="w-10 text-right text-[10px] text-gray-500">B</span>
+                  <span className="w-8 text-right text-[10px] text-gray-500">4s</span>
+                  <span className="w-8 text-right text-[10px] text-gray-500">6s</span>
+                  <span className="w-12 text-right text-[10px] text-gray-500">SR</span>
+                </div>
+                {innings.batsmen.map((bat, i) => {
+                  const p   = findPlayer(allPlayers, bat.playerId);
+                  const str = i === innings.currentBatsmanOnStrike && !innings.isComplete;
+                  const ns  = i === innings.currentBatsmanNonStrike && !innings.isComplete;
+                  const sr  = bat.balls > 0 ? Math.round((bat.runs / bat.balls) * 100) : 0;
+                  return (
+                    <div key={bat.playerId}
+                         className="flex items-center px-4 py-2"
+                         style={{ borderBottom: "1px solid rgba(255,255,255,0.04)",
+                                  background: str ? "rgba(16,185,129,0.1)" : "transparent" }}>
+                      <div className="flex-1 min-w-0">
+                        <span className={`text-sm font-medium ${str ? "text-emerald-300" : bat.isOut ? "text-gray-500" : "text-gray-200"}`}>
+                          {p?.name ?? "—"}
+                        </span>
+                        {str && <span className="text-emerald-500 ml-1 text-xs">*</span>}
+                        {ns  && <span className="text-gray-400 ml-1 text-xs">†</span>}
+                        {bat.isOut && (
+                          <span className="text-[10px] text-gray-600 ml-1">({dismissalShort(bat.dismissalType)})</span>
+                        )}
+                      </div>
+                      <span className={`w-10 text-right text-sm tabular-nums font-bold ${bat.runs >= 50 ? "text-yellow-300" : "text-gray-300"}`}>
+                        {bat.isOut || bat.balls > 0 ? bat.runs : "—"}
+                      </span>
+                      <span className="w-10 text-right text-sm tabular-nums text-gray-500">{bat.balls > 0 ? bat.balls : ""}</span>
+                      <span className="w-8 text-right text-sm tabular-nums text-gray-500">{bat.fours > 0 ? bat.fours : ""}</span>
+                      <span className="w-8 text-right text-sm tabular-nums text-gray-500">{bat.sixes > 0 ? bat.sixes : ""}</span>
+                      <span className="w-12 text-right text-sm tabular-nums text-gray-500">{bat.balls > 0 ? sr : ""}</span>
+                    </div>
+                  );
+                })}
+                <div className="flex items-center px-4 py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                  <span className="flex-1 text-gray-500 text-sm">Extras</span>
+                  <span className="text-gray-400 text-sm tabular-nums">{extras}</span>
+                </div>
+                <div className="flex items-center px-4 py-3" style={{ background: "rgba(0,0,0,0.2)" }}>
+                  <span className="flex-1 text-white font-semibold text-sm">Total</span>
+                  <span className="text-white font-bold text-base tabular-nums">
+                    {innings.totalRuns}/{innings.totalWickets} ({formatOvers(totalBalls)} ov)
+                  </span>
+                </div>
+              </div>
+
+              {/* Bowling card */}
+              <div className="rounded-xl overflow-hidden"
+                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                <div className="px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-red-400"
+                     style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                  Bowling — {innings.bowlingTeamName}
+                </div>
+                <div className="flex items-center px-4 py-1.5"
+                     style={{ background: "rgba(0,0,0,0.3)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <span className="flex-1 text-[10px] text-gray-500">Bowler</span>
+                  <span className="w-8  text-right text-[10px] text-gray-500">O</span>
+                  <span className="w-10 text-right text-[10px] text-gray-500">R</span>
+                  <span className="w-8  text-right text-[10px] text-gray-500">W</span>
+                  <span className="w-16 text-right text-[10px] text-gray-500">Econ</span>
+                </div>
+                {innings.bowlers.filter(b => b.overs > 0 || b.ballsInCurrentOver > 0).map(b => {
+                  const p   = findPlayer(allPlayers, b.playerId);
+                  const bs  = b.overs * 6 + b.ballsInCurrentOver;
+                  const cur = b.playerId === curBowler?.playerId;
+                  return (
+                    <div key={b.playerId}
+                         className="flex items-center px-4 py-2.5"
+                         style={{ borderBottom: "1px solid rgba(255,255,255,0.04)",
+                                  background: cur ? "rgba(239,68,68,0.08)" : "transparent" }}>
+                      <span className={`flex-1 text-sm font-medium ${cur ? "text-white" : "text-gray-300"}`}>
+                        {p?.name ?? b.playerId}
+                      </span>
+                      <span className="w-8  text-right text-sm tabular-nums text-gray-500">{formatOvers(bs)}</span>
+                      <span className="w-10 text-right text-sm tabular-nums text-gray-500">{b.runsConceded}</span>
+                      <span className={`w-8 text-right text-sm tabular-nums font-bold ${b.wickets >= 3 ? "text-red-400" : b.wickets > 0 ? "text-orange-400" : "text-gray-500"}`}>
+                        {b.wickets}
+                      </span>
+                      <span className="w-16 text-right text-sm tabular-nums text-gray-500">
+                        {bs > 0 ? formatEconomy(b.runsConceded, bs) : "—"}
+                      </span>
+                    </div>
+                  );
+                })}
+                {innings.bowlers.filter(b => b.overs > 0 || b.ballsInCurrentOver > 0).length === 0 && (
+                  <p className="text-sm text-gray-600 italic p-4">No overs bowled yet</p>
+                )}
+              </div>
+
+              {/* Win probability — 2nd innings only */}
+              {isSecond && innings.target !== undefined && (() => {
+                const wp = computeWinProb(innings.totalRuns, innings.target, totalBalls, innings.matchOvers, innings.totalWickets);
+                return (
+                  <div className="rounded-xl p-4"
+                       style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">Win Probability</p>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-3 bg-gray-800 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-500"
+                             style={{ width: `${wp}%`, background: wp > 60 ? "linear-gradient(90deg,#10b981,#34d399)" : wp > 40 ? "linear-gradient(90deg,#f59e0b,#fbbf24)" : "linear-gradient(90deg,#ef4444,#f87171)" }} />
+                      </div>
+                      <span className="text-3xl font-black tabular-nums shrink-0"
+                            style={{ color: wp > 60 ? "#34d399" : wp > 40 ? "#fbbf24" : "#f87171" }}>
+                        {wp}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between mt-2 text-[11px] text-gray-600">
+                      <span>Need {innings.target - innings.totalRuns} runs</span>
+                      <span>{innings.matchOvers * 6 - totalBalls} balls left · {10 - innings.totalWickets} wkts</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* ── Score progression / worm ── */}
+          {pauseView === "worm" && (
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="rounded-xl p-4"
+                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-widest">Score Progression</p>
+                  {isSecond && state.firstInnings && (
+                    <div className="flex gap-4">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-5 h-0.5 rounded bg-emerald-400" />
+                        <span className="text-[10px] text-gray-400">{innings.battingTeamName}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-5 border-t-2 border-dashed border-gray-500" />
+                        <span className="text-[10px] text-gray-400">{state.firstInnings.battingTeamName}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <WormChart innings={innings} firstInnings={isSecond ? state.firstInnings : null} matchOvers={innings.matchOvers} />
+              </div>
+
+              <div className="rounded-xl p-4"
+                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">Runs Per Over</p>
+                <RPOChart innings={innings} />
+              </div>
+            </div>
+          )}
+
+        </div>
       )}
     </div>
   );

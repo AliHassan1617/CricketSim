@@ -22,8 +22,8 @@ export function computePressure(
   else if (requiredRate < 12) rrFactor = 40;
   else rrFactor = 50;
 
-  // 5 per wicket (was 7) — pressure cascades slower so middle-order survives
-  const wicketsLostFactor = wicketsLost * 5;
+  // 4 per wicket, capped at 30 — prevents cascade that destroys BatScore for all tail-enders
+  const wicketsLostFactor = Math.min(wicketsLost * 4, 30);
 
   let oversFactor: number;
   if (remainingOvers > 6) oversFactor = 0;

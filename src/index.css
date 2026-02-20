@@ -1,8 +1,31 @@
 @import "tailwindcss";
 
+html, body, #root {
+  height: 100%;
+  /* prevent overscroll bounce on mobile (Android/iOS) */
+  overscroll-behavior: none;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
+  /* status-bar safe area for devices without a notch (Android) */
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Bottom padding for main content that sits above the fixed mobile tab bar.
+   Adds the tab bar height (56px) plus the device's home-indicator safe area. */
+.safe-pb-tab {
+  padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  .safe-pb-tab { padding-bottom: 0; }
+}
+
+/* Tap highlight suppression for game buttons */
+button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 @keyframes slideDown {

@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { useGame } from "../state/gameContext";
-import { getAllTeams, getRandomOpponent } from "../data/teamDb";
+import { getAllTeams } from "../data/teamDb";
 import { Team } from "../types/player";
 
 function topPlayers(team: Team) {
@@ -40,10 +41,20 @@ const ALL_TEAMS = getAllTeams();
 
 export function TeamPickScreen() {
   const { dispatch } = useGame();
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
 
-  const handlePick = (team: Team) => {
-    const opponent = getRandomOpponent(team.id);
-    dispatch({ type: "PICK_TEAM", payload: { userTeam: team, opponentTeam: opponent } });
+  const displayTeams = selectedTeam
+    ? ALL_TEAMS.filter(t => t.id !== selectedTeam.id)
+    : ALL_TEAMS;
+
+  const handleCardClick = (team: Team) => {
+    if (!selectedTeam) {
+      // Step 1: pick user's team
+      setSelectedTeam(team);
+    } else {
+      // Step 2: pick opponent
+      dispatch({ type: "PICK_TEAM", payload: { userTeam: selectedTeam, opponentTeam: team } });
+    }
   };
 
   return (
@@ -53,26 +64,56 @@ export function TeamPickScreen() {
     >
       {/* Header */}
       <div className="text-center">
-        <p className="text-[10px] text-gray-600 uppercase tracking-[0.4em] mb-3">
-          Select your team
-        </p>
-        <h1 className="text-4xl font-black tracking-tight text-white">
-          Choose Your Side
-        </h1>
-        <p className="text-xs text-gray-500 mt-2">
-          Your opponent will be randomly drawn from the remaining nations
-        </p>
+        {!selectedTeam ? (
+          <>
+            <p className="text-[10px] text-gray-600 uppercase tracking-[0.4em] mb-3">
+              Step 1 of 2
+            </p>
+            <h1 className="text-4xl font-black tracking-tight text-white">
+              Choose Your Side
+            </h1>
+            <p className="text-xs text-gray-500 mt-2">
+              Pick the team you want to play as
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-[10px] text-gray-600 uppercase tracking-[0.4em] mb-3">
+              Step 2 of 2
+            </p>
+            <h1 className="text-4xl font-black tracking-tight text-white">
+              Choose Your Opponent
+            </h1>
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <div
+                className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[7px] font-extrabold shrink-0"
+                style={{ backgroundColor: selectedTeam.color }}
+              >
+                {selectedTeam.shortName}
+              </div>
+              <p className="text-xs text-gray-400">
+                Playing as <span className="text-white font-semibold">{selectedTeam.name}</span>
+              </p>
+              <button
+                onClick={() => setSelectedTeam(null)}
+                className="text-[10px] text-gray-600 hover:text-gray-400 underline ml-1 cursor-pointer"
+              >
+                Change
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Team cards — 2 columns on mobile, 4 on wider screens */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-5xl">
-        {ALL_TEAMS.map(team => {
+        {displayTeams.map(team => {
           const top3 = topPlayers(team);
           const { batAvg, bowlAvg, fieldAvg } = teamStats(team);
           return (
             <button
               key={team.id}
-              onClick={() => handlePick(team)}
+              onClick={() => handleCardClick(team)}
               className="text-left rounded-2xl overflow-hidden transition-all duration-150 cursor-pointer"
               style={{ border: "1.5px solid rgba(255,255,255,0.1)" }}
               onMouseEnter={e => {
@@ -193,7 +234,7 @@ export function TeamPickScreen() {
                   className="w-full py-2 rounded-xl text-center text-xs font-bold text-white mt-1"
                   style={{ backgroundColor: `${team.color}cc` }}
                 >
-                  Play as {team.shortName}
+                  {selectedTeam ? `Face ${team.shortName}` : `Play as ${team.shortName}`}
                 </div>
               </div>
             </button>

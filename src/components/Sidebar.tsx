@@ -61,11 +61,14 @@ export function Sidebar({ activeTab, onTabChange, team, isMatchPhase }: SidebarP
       </div>
 
       {/* ── Mobile bottom tab bar ── */}
-      <div className="fixed bottom-0 left-0 right-0 md:hidden z-50 flex bg-gray-900 border-t border-gray-700">
+      <div
+        className="fixed bottom-0 left-0 right-0 md:hidden z-50 flex bg-gray-900 border-t border-gray-700"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
         {team && (
           <div className="flex items-center px-3 border-r border-gray-700 shrink-0">
             <div
-              className="w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs"
+              className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs"
               style={{ backgroundColor: team.color }}
             >
               {team.shortName.charAt(0)}
@@ -76,11 +79,11 @@ export function Sidebar({ activeTab, onTabChange, team, isMatchPhase }: SidebarP
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
-            className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-colors ${
+            className={`flex-1 flex flex-col items-center gap-1 py-3 transition-colors ${
               activeTab === tab.id ? "text-emerald-400" : "text-gray-500"
             }`}
           >
-            <span className="text-lg leading-none">{tab.icon}</span>
+            <span className="text-xl leading-none">{tab.icon}</span>
             <span className="text-[10px] font-medium">{tab.label}</span>
           </button>
         ))}

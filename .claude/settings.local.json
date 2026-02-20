@@ -3,7 +3,13 @@
     "allow": [
       "Bash(npm create:*)",
       "Bash(npx --yes create-vite@latest temp-scaffold --template react-ts:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npx cap add:*)",
+      "Bash(ADB=\"C:/Users/pc/AppData/Local/Android/Sdk/platform-tools/adb.exe\")",
+      "Bash(\"$ADB\" devices)",
+      "Bash(./gradlew assembleDebug:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(\"C:\\\\Users\\\\pc\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" devices)"
     ]
   }
 }

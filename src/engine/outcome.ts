@@ -11,7 +11,7 @@ import { applyIntentAndFieldMultipliers } from "./field";
 // NOTE: A flat intent bonus is added in resolveOutcome — do NOT bake in
 //       aggressive risk here, keep these weights intent-neutral.
 const PROBABILITY_TABLE: { minNet: number; weights: number[] }[] = [
-  { minNet: -Infinity, weights: [52, 14, 3, 0, 2, 0, 11] },  // ≤ -30  → wicket ~14%
+  { minNet: -Infinity, weights: [54, 15, 3, 0, 1, 0, 8] },   // ≤ -30  → wicket ~10%
   { minNet: -30,       weights: [42, 18, 5, 1, 4, 0,  9] },  // -30→-20 → wicket ~12%
   { minNet: -20,       weights: [32, 23, 8, 2, 7, 1,  7] },  // -20→-10 → wicket ~9%
   { minNet: -10,       weights: [24, 27, 11, 2, 9, 2,  5] }, // -10→0   → wicket ~6%
@@ -25,7 +25,11 @@ function interpolateWeights(net: number): number[] {
   // Find the two bands to interpolate between
   for (let i = PROBABILITY_TABLE.length - 1; i >= 0; i--) {
     if (net >= PROBABILITY_TABLE[i].minNet) {
-      if (i === PROBABILITY_TABLE.length - 1) {
+      // Bottom band (i=0 has minNet=-Infinity) or top band: return directly.
+      // Without this guard, range = upper.minNet - (-Infinity) = Infinity,
+      // t = NaN, and all weights become NaN — causing weightedPick to always
+      // fall through and return Wicket (the last item).
+      if (i === 0 || i === PROBABILITY_TABLE.length - 1) {
         return [...PROBABILITY_TABLE[i].weights];
       }
       const lower = PROBABILITY_TABLE[i];

@@ -20,8 +20,8 @@ export function Layout({ activeTab, onTabChange, team, isMatchPhase, children }:
         team={team}
         isMatchPhase={isMatchPhase}
       />
-      {/* pb-14 on mobile reserves space above the fixed bottom nav bar */}
-      <main className="flex-1 min-h-0 overflow-y-auto pb-14 md:pb-0">
+      {/* safe-pb-tab: tab-bar height + device safe-area on mobile, 0 on desktop */}
+      <main className="flex-1 min-h-0 overflow-y-auto safe-pb-tab">
         {children}
       </main>
     </div>
