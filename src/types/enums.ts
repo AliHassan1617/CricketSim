@@ -1,3 +1,9 @@
+export enum MatchFormat {
+  T5  = "T5",
+  T10 = "T10",
+  T20 = "T20",
+}
+
 export enum BowlerType {
   Pace = "pace",
   Spin = "spin",
@@ -50,6 +56,7 @@ export enum DismissalType {
 }
 
 export enum GamePhase {
+  Start = "start",
   TeamPick = "team-pick",
   PreMatch = "pre-match",
   Toss = "toss",

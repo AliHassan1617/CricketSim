@@ -5,6 +5,7 @@ import {
   DismissalType,
   FieldType,
   GamePhase,
+  MatchFormat,
   PitchType,
   SidebarTab,
 } from "./enums";
@@ -82,12 +83,14 @@ export interface Innings {
   nextBatsmanIndex: number;
   isFreeHit: boolean;
   isUserBatting: boolean;
+  matchOvers: number;
 }
 
 export interface MatchState {
   phase: GamePhase;
   sidebarTab: SidebarTab;
   pitchType: PitchType;
+  format: MatchFormat;
 
   // Teams
   userTeam: Team | null;
@@ -113,4 +116,7 @@ export interface MatchState {
 
   // Testing / simulation mode
   isSimulating: boolean;
+
+  // Gate: user must click "Select Starting XI" on Match screen before Tactics is usable
+  tacticsUnlocked: boolean;
 }

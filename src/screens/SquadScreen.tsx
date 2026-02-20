@@ -50,7 +50,6 @@ function ColHeader({ label, title }: { label: string; title?: string }) {
 export function SquadScreen() {
   const { state, dispatch } = useGame();
   const team = state.userTeam;
-
   if (!team) return null;
 
   const selectedPlayer = state.selectedPlayerId

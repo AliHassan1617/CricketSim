@@ -58,50 +58,101 @@ function generateCommentary(
       `Good length ${lineDesc}, ${batsmanName} watches it through. No run.`,
       `Beaten! ${bowlerName} gets one past the edge of ${batsmanName}'s bat.`,
       `Tight delivery ${lineDesc}, ${batsmanName} plays and misses.`,
+      `${batsmanName} gets forward and smothers it — no room to play a shot.`,
+      `Excellent line from ${bowlerName}, ${batsmanName} can only block. Dot.`,
+      `${batsmanName} pushes to ${side} but the fielder swoops in. Well fielded!`,
+      `${bowlerName} beats ${batsmanName} through the air! Superb delivery.`,
     ],
     [BallOutcome.Single]: [
       `Pushed to ${side} for a single. ${batsmanName} rotates strike.`,
       `Nudged ${lineDesc}, quick single taken by ${batsmanName}.`,
       `Tapped to ${side}, one run. Smart cricket from ${batsmanName}.`,
+      `Worked to ${side} and they steal a quick single. Good running.`,
+      `Deflected off the pad to ${side} — one run. ${batsmanName} happy to rotate.`,
+      `Into the gap on ${side}, they jog a comfortable single.`,
     ],
     [BallOutcome.Double]: [
       `Worked away to ${side}, they come back for two.`,
       `${batsmanName} finds the gap on the ${side}, easy two runs.`,
       `Good running between the wickets, two taken to ${side}.`,
+      `Punched to ${side}, the outfield is quick — two runs.`,
+      `Squeezed through to ${side}, excellent running. Two!`,
     ],
     [BallOutcome.Three]: [
       `Played into the deep on the ${side}, excellent running — three taken!`,
       `${batsmanName} finds the gap, misfield allows three runs.`,
+      `Driven hard to ${side}, they run hard — THREE!`,
+      `Into the deep, great communication between the batsmen. Three runs!`,
     ],
     [BallOutcome.Four]: [
       `FOUR! ${batsmanName} drives beautifully through ${side}!`,
       `Boundary! ${bowlerName} bowls ${lineDesc} and ${batsmanName} punishes it!`,
       `FOUR! Races to the fence through ${side}. Exquisite from ${batsmanName}!`,
       `FOUR! ${batsmanName} smashes it past the fielder on the ${side}!`,
+      `FOUR! Cracking shot by ${batsmanName} — ${bowlerName} can only watch!`,
+      `FOUR! Threaded through the gap, the ball rockets to the boundary!`,
+      `FOUR! ${batsmanName} opens the face and steers it fine on the ${side}!`,
+      `FOUR! Back-foot punch through ${side} — imperious from ${batsmanName}!`,
     ],
     [BallOutcome.Six]: [
       `SIX! ${batsmanName} launches ${bowlerName} into the stands!`,
       `Maximum! Incredible power from ${batsmanName} over the ${side}!`,
       `SIX! That's gone all the way! ${batsmanName} at his destructive best!`,
+      `SIX! What a shot! ${batsmanName} clears the boundary with ease!`,
+      `MAXIMUM! ${bowlerName} goes for six — ${batsmanName} is in full flow!`,
+      `SIX! Right out of the middle, a monster hit from ${batsmanName}!`,
+      `SIX! ${batsmanName} gets underneath it and deposits it into the crowd!`,
     ],
   };
 
   if (outcome === BallOutcome.Wicket && dismissalType) {
-    const wicketTemplates: Record<string, string> = {
-      bowled: `BOWLED! ${bowlerName} cleans up ${batsmanName}! The stumps are shattered!`,
-      caught: `CAUGHT! ${batsmanName} edges ${bowlerName} and it's taken! OUT!`,
-      lbw: `LBW! ${bowlerName} traps ${batsmanName} in front! The finger goes up!`,
-      "run-out": `RUN OUT! Terrible mix-up and ${batsmanName} has to go!`,
-      stumped: `STUMPED! ${batsmanName} comes down the track and misses! Quick work behind the stumps!`,
+    const dismissalVariants: Record<string, string[]> = {
+      bowled: [
+        `BOWLED! ${bowlerName} cleans up ${batsmanName}! The stumps are shattered!`,
+        `BOWLED OUT! ${bowlerName} finds the gap between bat and pad — timber!`,
+        `BOWLED! What a delivery from ${bowlerName}! ${batsmanName} had no answer!`,
+      ],
+      caught: [
+        `CAUGHT! ${batsmanName} edges ${bowlerName} and it's taken! OUT!`,
+        `CAUGHT! ${batsmanName} mistimes it and the fielder pouches a good catch!`,
+        `CAUGHT! ${batsmanName} goes aerial once too often — taken in the deep!`,
+        `OUT! ${batsmanName} feathers one through to the keeper off ${bowlerName}!`,
+      ],
+      lbw: [
+        `LBW! ${bowlerName} traps ${batsmanName} in front! The finger goes up!`,
+        `LBW! Plumb in front! ${batsmanName} is struck on the pad — out!`,
+        `LBW! ${bowlerName} nips one back sharply, ${batsmanName} misses — gone!`,
+      ],
+      "run-out": [
+        `RUN OUT! Terrible mix-up and ${batsmanName} has to go!`,
+        `RUN OUT! Direct hit — brilliant fielding ends ${batsmanName}'s innings!`,
+        `RUN OUT! There was nothing in that — ${batsmanName} is short of the crease!`,
+      ],
+      stumped: [
+        `STUMPED! ${batsmanName} ventures down the track and misses! Quick glove-work!`,
+        `STUMPED! ${batsmanName} is miles out — brilliant work behind the stumps!`,
+        `STUMPED! ${batsmanName} is foxed by the turn, the keeper does the rest!`,
+      ],
     };
-    return wicketTemplates[dismissalType] || `OUT! ${batsmanName} is dismissed by ${bowlerName}!`;
+    const variants = dismissalVariants[dismissalType] ?? [`OUT! ${batsmanName} is dismissed by ${bowlerName}!`];
+    return variants[randInt(0, variants.length - 1)];
   }
 
   if (outcome === BallOutcome.Wide) {
-    return `Wide ball from ${bowlerName}! Drifting down the ${side}. One extra run.`;
+    const wideTemplates = [
+      `Wide! ${bowlerName} strays down the ${side}. One extra added.`,
+      `Wide ball from ${bowlerName}! Drifting too far to the ${side}.`,
+      `No ball — that's a wide from ${bowlerName}. One extra.`,
+    ];
+    return wideTemplates[randInt(0, wideTemplates.length - 1)];
   }
   if (outcome === BallOutcome.NoBall) {
-    return `No ball! ${bowlerName} has overstepped. Free hit coming up next.`;
+    const nbTemplates = [
+      `No ball! ${bowlerName} has overstepped. Free hit coming up!`,
+      `NO BALL! Front foot infringement — free hit for ${batsmanName}!`,
+      `No ball called! ${bowlerName} crosses the crease line.`,
+    ];
+    return nbTemplates[randInt(0, nbTemplates.length - 1)];
   }
 
   const pool = templates[outcome] || [`${batsmanName} plays ${bowlerName} for ${outcome} run(s).`];
@@ -123,13 +174,13 @@ export function simulateBall(
   const overNumber = innings.totalOvers;
   const ballNumber = innings.ballsInCurrentOver + 1;
   const totalBalls = innings.totalOvers * 6 + innings.ballsInCurrentOver;
-  const totalOversInMatch = 10;
+  const totalOversInMatch = innings.matchOvers;
   const isDeathOvers = overNumber >= totalOversInMatch - 2; // last 2 overs
 
   // 1. Compute pressure index (always, used in scoring)
   let pressureIndex = 0;
   if (target !== undefined) {
-    const pressure = computePressure(target, innings.totalRuns, totalBalls, innings.totalWickets);
+    const pressure = computePressure(target, innings.totalRuns, totalBalls, innings.totalWickets, innings.matchOvers * 6);
     pressureIndex = pressure.totalPressure;
   }
 
@@ -181,7 +232,7 @@ export function simulateBall(
 
   // 6. Apply pressure modifier to batScore if chasing
   if (target !== undefined) {
-    const pressure = computePressure(target, innings.totalRuns, totalBalls, innings.totalWickets);
+    const pressure = computePressure(target, innings.totalRuns, totalBalls, innings.totalWickets, innings.matchOvers * 6);
     batScore = applyPressureToBatScore(batScore, pressure, battingIntent);
   }
 

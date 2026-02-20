@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useGame } from "../state/gameContext";
 import { BallOutcome, BattingIntent, BowlerLine, BowlerType, FieldType } from "../types/enums";
+import { Innings } from "../types/match";
 import { simulateBall } from "../engine/index";
 import {
   getActiveInnings,
@@ -18,6 +19,25 @@ import { PitchSelector, mapToEngineLine } from "../components/PitchSelector";
 import { rpoToIntent } from "../components/RPOSlider";
 import type { BowlingLineChoice, BowlingLengthChoice } from "../components/PitchSelector";
 import { formatOvers, formatRunRate, formatEconomy } from "../utils/format";
+
+// ─── Bat icon — shown next to the on-strike batsman ──────────────────────────
+function BatIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      width="8"
+      height="12"
+      viewBox="0 0 8 12"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      {/* Blade */}
+      <rect x="0.5" y="0.5" width="7" height="7.5" rx="1.5" />
+      {/* Handle */}
+      <rect x="2.5" y="8" width="3" height="3.5" rx="1.5" />
+    </svg>
+  );
+}
 
 // ─── tiny helpers ────────────────────────────────────────────────────────────
 function findPlayer(all: Player[], id: string) {
@@ -48,6 +68,140 @@ function ballLabel(o: BallOutcome, runs: number) {
        : o === BallOutcome.Six    ? "6" : o === BallOutcome.Dot  ? "·"
        : String(runs);
 }
+function computePartnership(innings: Innings): { runs: number; balls: number } {
+  let lastWicketIdx = -1;
+  for (let i = innings.allEvents.length - 1; i >= 0; i--) {
+    if (innings.allEvents[i].outcome === BallOutcome.Wicket) { lastWicketIdx = i; break; }
+  }
+  const evts = innings.allEvents.slice(lastWicketIdx + 1);
+  return {
+    runs: evts.reduce((s, e) => s + e.runsScored, 0),
+    balls: evts.filter(e => !e.isExtra).length,
+  };
+}
+
+// ─── Per-over run totals (0-indexed by overNumber) ───────────────────────────
+function getRunsPerOver(innings: Innings): number[] {
+  const byOver: number[] = [];
+  for (const ev of innings.allEvents) {
+    if (byOver[ev.overNumber] === undefined) byOver[ev.overNumber] = 0;
+    byOver[ev.overNumber] += ev.runsScored;
+  }
+  return byOver;
+}
+
+// ─── Worm chart — cumulative run progression ──────────────────────────────────
+function WormChart({ innings, firstInnings, matchOvers }: {
+  innings: Innings; firstInnings?: Innings | null; matchOvers: number;
+}) {
+  const W = 272, H = 88, padL = 26, padB = 16, padR = 6, padT = 6;
+  const cW = W - padL - padR, cH = H - padT - padB;
+
+  function buildWorm(inns: Innings) {
+    const byOver = getRunsPerOver(inns);
+    const pts: { x: number; y: number }[] = [{ x: 0, y: 0 }];
+    let cum = 0;
+    for (let i = 0; i < inns.totalOvers; i++) { cum += byOver[i] ?? 0; pts.push({ x: i + 1, y: cum }); }
+    if (inns.ballsInCurrentOver > 0) {
+      cum += byOver[inns.totalOvers] ?? 0;
+      pts.push({ x: inns.totalOvers + inns.ballsInCurrentOver / 6, y: cum });
+    }
+    return pts;
+  }
+
+  const curr = buildWorm(innings);
+  const first = firstInnings ? buildWorm(firstInnings) : null;
+  const maxRuns = Math.max(...curr.map(p => p.y), first ? Math.max(...first.map(p => p.y)) : 0, 40);
+
+  const toX = (ov: number) => padL + (ov / matchOvers) * cW;
+  const toY = (r: number)  => padT + cH - (r / maxRuns) * cH;
+  const path = (pts: { x: number; y: number }[]) =>
+    pts.map((p, i) => `${i === 0 ? "M" : "L"}${toX(p.x).toFixed(1)} ${toY(p.y).toFixed(1)}`).join(" ");
+
+  const yTicks = [0, Math.round(maxRuns / 2), maxRuns];
+  const step = matchOvers <= 5 ? 1 : matchOvers <= 10 ? 2 : 5;
+  const xTicks: number[] = [];
+  for (let i = 0; i <= matchOvers; i += step) xTicks.push(i);
+
+  return (
+    <svg width={W} height={H}>
+      {yTicks.map(v => (
+        <g key={v}>
+          <line x1={padL} x2={W - padR} y1={toY(v)} y2={toY(v)} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
+          <text x={padL - 3} y={toY(v) + 3} fill="#6b7280" fontSize={7} textAnchor="end">{v}</text>
+        </g>
+      ))}
+      {xTicks.map(v => (
+        <text key={v} x={toX(v)} y={H - 2} fill="#6b7280" fontSize={7} textAnchor="middle">{v}</text>
+      ))}
+      {first && first.length > 1 && (
+        <path d={path(first)} fill="none" stroke="#6b7280" strokeWidth={1.5} strokeDasharray="3,2" strokeLinejoin="round" />
+      )}
+      {curr.length > 1 && (
+        <path d={path(curr)} fill="none" stroke="#10b981" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      )}
+      {curr.length > 0 && (
+        <circle cx={toX(curr[curr.length-1].x)} cy={toY(curr[curr.length-1].y)} r={3} fill="#10b981" />
+      )}
+    </svg>
+  );
+}
+
+// ─── Runs per over bar chart ──────────────────────────────────────────────────
+function RPOChart({ innings }: { innings: Innings }) {
+  const byOver = getRunsPerOver(innings);
+  const wicketsByOver = innings.allEvents.reduce((acc, ev) => {
+    if (ev.outcome === BallOutcome.Wicket) acc[ev.overNumber] = true;
+    return acc;
+  }, {} as Record<number, boolean>);
+
+  const overs = Array.from({ length: innings.totalOvers }, (_, i) => ({
+    runs: byOver[i] ?? 0,
+    wkt: wicketsByOver[i] ?? false,
+  }));
+
+  if (overs.length === 0) return (
+    <p className="text-[11px] text-gray-600 text-center py-4">No completed overs yet</p>
+  );
+
+  const maxR = Math.max(...overs.map(o => o.runs), 10);
+  const W = 272, H = 72;
+  const gap = 1;
+  const barW = Math.max(3, (W - 8) / overs.length - gap);
+
+  return (
+    <svg width={W} height={H + 14}>
+      {overs.map((o, i) => {
+        const bH = Math.max(2, (o.runs / maxR) * H);
+        const x  = 4 + i * (barW + gap);
+        const col = o.wkt ? "#ef4444" : o.runs >= 12 ? "#fbbf24" : o.runs >= 8 ? "#10b981" : o.runs >= 5 ? "#6b7280" : "#374151";
+        return (
+          <g key={i}>
+            <rect x={x} y={H - bH} width={barW} height={bH} rx={1} fill={col} opacity={0.85} />
+            {overs.length <= 20 && (
+              <text x={x + barW / 2} y={H + 11} fill="#4b5563" fontSize={6.5} textAnchor="middle">{i + 1}</text>
+            )}
+            {o.runs > 0 && bH > 12 && (
+              <text x={x + barW / 2} y={H - bH + 9} fill="rgba(255,255,255,0.7)" fontSize={7} textAnchor="middle">{o.runs}</text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function computeWinProb(runs: number, target: number, totalBalls: number, matchOvers: number, wickets: number): number {
+  const remaining = target - runs;
+  const remainingBalls = matchOvers * 6 - totalBalls;
+  if (remaining <= 0) return 100;
+  if (remainingBalls <= 0 || wickets >= 10) return 0;
+  const reqRate = (remaining / remainingBalls) * 6;
+  const wicketsInHand = 10 - wickets;
+  const rateFactor   = Math.max(0, Math.min(1, (14 - reqRate) / 11));
+  const wicketFactor = wicketsInHand / 10;
+  return Math.round(Math.min(95, Math.max(5, rateFactor * 65 + wicketFactor * 35)));
+}
 /**
  * AI batting intent — per-ball decision using match situation + player character.
  * batsmanBalls / batsmanPower / batsmanConfidence give individual flavour.
@@ -55,6 +209,7 @@ function ballLabel(o: BallOutcome, runs: number) {
 function getAIIntent(
   runs: number, wkts: number, overs: number,
   batsmanBalls: number, batsmanPower: number, batsmanConfidence: number,
+  matchOvers: number,
   target?: number,
 ): BattingIntent {
   // New batsman: be cautious for the first 3 balls no matter what
@@ -67,35 +222,42 @@ function getAIIntent(
 
   if (target !== undefined) {
     // CHASING — use per-ball required run rate for precision
-    const remainingBalls = 60 - overs * 6;
+    const remainingBalls = matchOvers * 6 - overs * 6;
     const reqRPO = remainingBalls > 0 ? ((target - runs) / remainingBalls) * 6 : 99;
 
-    if (reqRPO > 14) return BattingIntent.Aggressive;
-    if (reqRPO > 11) return BattingIntent.Aggressive;
-    if (reqRPO > 9)  return Math.random() < 0.85 ? BattingIntent.Aggressive : BattingIntent.Balanced;
-    if (reqRPO > 7)  return Math.random() < 0.60 ? BattingIntent.Aggressive : BattingIntent.Balanced;
-    if (reqRPO > 5.5) return Math.random() < 0.38 ? BattingIntent.Aggressive : BattingIntent.Balanced;
-    // Comfortable chase — keep rotating strike, never go fully defensive
-    return Math.random() < 0.28 ? BattingIntent.Aggressive : BattingIntent.Balanced;
+    // With few wickets left, dial back aggression even in a desperate chase —
+    // throwing the last batsmen away achieves nothing.
+    const wicketsLeft = 10 - wkts;
+    const wktScale = wicketsLeft <= 2 ? 0.50 : wicketsLeft <= 4 ? 0.75 : 1.0;
+
+    // Raised thresholds vs old code: reqRPO 9-10 is tough but chaseable —
+    // no need to swing for six from ball one.
+    if (reqRPO > 15) return BattingIntent.Aggressive;
+    if (reqRPO > 12) return Math.random() < 0.80 * wktScale ? BattingIntent.Aggressive : BattingIntent.Balanced;
+    if (reqRPO > 10) return Math.random() < 0.60 * wktScale ? BattingIntent.Aggressive : BattingIntent.Balanced;
+    if (reqRPO > 8)  return Math.random() < 0.42 * wktScale ? BattingIntent.Aggressive : BattingIntent.Balanced;
+    if (reqRPO > 6.5) return Math.random() < 0.28 * wktScale ? BattingIntent.Aggressive : BattingIntent.Balanced;
+    // Comfortable chase — rotate strike, stay calm
+    return Math.random() < 0.18 * wktScale ? BattingIntent.Aggressive : BattingIntent.Balanced;
   }
 
   // FIRST INNINGS — build a big total
-  if (overs >= 9) return BattingIntent.Aggressive; // last over: always swing
+  if (overs >= matchOvers - 1) return BattingIntent.Aggressive; // last over: always swing
 
-  if (overs >= 7) {
+  if (overs >= matchOvers - 3) {
     // Death overs: near-always aggressive unless pure tail
     if (wkts >= 8) return BattingIntent.Balanced;
     return Math.random() < (0.80 + naturalAgg * 0.15) ? BattingIntent.Aggressive : BattingIntent.Balanced;
   }
 
-  if (overs >= 5) {
+  if (overs >= matchOvers - 5) {
     // Mid-late: push hard — even after wickets, keep scoring
     if (wkts >= 7) return Math.random() < 0.55 ? BattingIntent.Aggressive : BattingIntent.Balanced;
     if (wkts >= 4) return Math.random() < (0.52 + naturalAgg * 0.2) ? BattingIntent.Aggressive : BattingIntent.Balanced;
     return Math.random() < (0.58 + naturalAgg * 0.2) ? BattingIntent.Aggressive : BattingIntent.Balanced;
   }
 
-  // Overs 2–5: middle powerplay — no longer go defensive on wickets; keep scoring
+  // Early/middle overs — no longer go defensive on wickets; keep scoring
   if (wkts >= 5) return Math.random() < 0.40 ? BattingIntent.Aggressive : BattingIntent.Balanced;
   if (wkts >= 3) return Math.random() < (0.38 + naturalAgg * 0.18) ? BattingIntent.Aggressive : BattingIntent.Balanced;
 
@@ -113,6 +275,7 @@ function getAIIntent(
 function getAIField(
   wkts: number, overs: number,
   strikerBalls: number, strikerConfidence: number,
+  matchOvers: number,
   target?: number, currentRuns?: number,
 ): FieldType {
   // New batsman is always most vulnerable — always attack
@@ -122,9 +285,9 @@ function getAIField(
   if (wkts >= 8) return FieldType.Defensive;
 
   // Death overs: press for wickets or protect a big lead
-  if (overs >= 8) {
+  if (overs >= matchOvers - 2) {
     if (target !== undefined && currentRuns !== undefined) {
-      const rem = 60 - overs * 6;
+      const rem = matchOvers * 6 - overs * 6;
       const reqRPO = rem > 0 ? ((target - currentRuns) / rem) * 6 : 99;
       if (reqRPO < 4.5) return FieldType.Defensive; // user is comfortably ahead
     }
@@ -150,7 +313,7 @@ function getAIField(
  */
 function getAIBowlingLine(
   batsmanPower: number, batsmanOffside: number, batsmanLegside: number,
-  bowlerType: BowlerType, overs: number,
+  bowlerType: BowlerType, overs: number, matchOvers: number,
 ): BowlerLine {
   // Target weaker side
   if (batsmanOffside < batsmanLegside - 12)
@@ -159,7 +322,7 @@ function getAIBowlingLine(
     return Math.random() < 0.55 ? BowlerLine.OnPads : BowlerLine.OnStumps;
 
   // Death overs: vary length aggressively to disrupt timing
-  if (overs >= 8) {
+  if (overs >= matchOvers - 2) {
     const r = Math.random();
     if (r < 0.30) return BowlerLine.Short;
     if (r < 0.50) return BowlerLine.Full;
@@ -249,6 +412,11 @@ export function MatchScreen() {
   const [flash, setFlash]           = useState(false);
   const [tab, setTab]               = useState<"batting"|"bowling">("batting");
   const [mobileTab, setMobileTab]   = useState<"score"|"controls">("controls");
+  const [overSummary, setOverSummary] = useState<{ over: number; runs: number; wickets: number; bowler: string } | null>(null);
+  const [milestone, setMilestone]   = useState<string | null>(null);
+  const [dataPanel, setDataPanel]   = useState<"winprob"|"worm"|"rpo"|null>(null);
+  const prevOverRef    = useRef(0);
+  const milestoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const matchTime       = useRef(new Date().toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }));
   const innings         = getActiveInnings(state);
@@ -292,6 +460,55 @@ export function MatchScreen() {
       return () => clearTimeout(t);
     }
   }, [strikerId]);
+
+  // Over summary — detect when totalOvers increments and flash an over card
+  useEffect(() => {
+    const curr = innings?.totalOvers ?? 0;
+    const prev = prevOverRef.current;
+    prevOverRef.current = curr;
+    if (curr <= prev || curr === 0) return;
+    // Gather events from the over that just ended (overNumber === prev)
+    const overEvts = innings?.allEvents.filter(e => e.overNumber === prev) ?? [];
+    const runsInOver = overEvts.reduce((s, e) => s + e.runsScored, 0);
+    const wktsInOver = overEvts.filter(e => e.outcome === BallOutcome.Wicket).length;
+    const lastEv = overEvts[overEvts.length - 1];
+    const bowlerName = lastEv
+      ? (getAllPlayers(state).find(p => p.id === lastEv.bowlerId)?.shortName ?? "?")
+      : "?";
+    setOverSummary({ over: curr, runs: runsInOver, wickets: wktsInOver, bowler: bowlerName });
+    const t = setTimeout(() => setOverSummary(null), 3500);
+    return () => clearTimeout(t);
+  }, [innings?.totalOvers]);
+
+  // Milestones — detect 50/100 for batsmen, 3-for/5-for for bowlers on each ball
+  useEffect(() => {
+    if (!innings) return;
+    const ev = innings.allEvents[innings.allEvents.length - 1];
+    if (!ev) return;
+    const allP = getAllPlayers(state);
+    const bat = innings.batsmen.find(b => b.playerId === ev.batsmanId);
+    if (bat && !bat.isOut) {
+      const p = allP.find(pl => pl.id === bat.playerId);
+      if (p) {
+        if (bat.runs === 50)  { showMs(`FIFTY! ${p.shortName} reaches 50!`); }
+        if (bat.runs === 100) { showMs(`CENTURY! ${p.shortName} hits 100!`); }
+      }
+    }
+    if (ev.outcome === BallOutcome.Wicket) {
+      const bowl = innings.bowlers.find(b => b.playerId === ev.bowlerId);
+      const p = allP.find(pl => pl.id === ev.bowlerId);
+      if (bowl && p) {
+        if (bowl.wickets === 3) { showMs(`3-for! ${p.shortName} takes 3 wickets!`); }
+        if (bowl.wickets === 5) { showMs(`FIVE-FOR! ${p.shortName} takes 5 wickets!`); }
+      }
+    }
+  }, [innings?.allEvents.length]);
+
+  function showMs(msg: string) {
+    if (milestoneTimer.current) clearTimeout(milestoneTimer.current);
+    setMilestone(msg);
+    milestoneTimer.current = setTimeout(() => setMilestone(null), 3200);
+  }
 
   // Simulate loop — fires handleNextBall as fast as React can process when active
   useEffect(() => {
@@ -337,14 +554,15 @@ export function MatchScreen() {
     const aiIntent = getAIIntent(
       innings.totalRuns, innings.totalWickets, innings.totalOvers,
       onStrike.balls, bsStats.batting.power, onStrike.confidence,
+      innings.matchOvers,
       innings.target,
     );
     const aiLine = getAIBowlingLine(
       bsStats.batting.power, bsStats.batting.offsideSkill, bsStats.batting.legsideSkill,
-      blStats.bowling.bowlerType, innings.totalOvers,
+      blStats.bowling.bowlerType, innings.totalOvers, innings.matchOvers,
     );
 
-    let intent = isBatting || state.isSimulating ? aiIntent : rpoToIntent(sRpo);
+    let intent = !isBatting || state.isSimulating ? aiIntent : rpoToIntent(sRpo);
     let ef     = field;
     let line: BowlerLine | undefined = undefined;
 
@@ -353,6 +571,7 @@ export function MatchScreen() {
       ef = getAIField(
         innings.totalWickets, innings.totalOvers,
         onStrike.balls, onStrike.confidence,
+        innings.matchOvers,
         innings.target, innings.totalRuns,
       );
       setAiField(ef);
@@ -383,13 +602,49 @@ export function MatchScreen() {
     <div className="flex flex-col h-full text-white overflow-hidden"
          style={{ background: "linear-gradient(135deg, #0a0f1e 0%, #0d1117 50%, #0a1628 100%)" }}>
 
+      {/* ── Over summary popup ── */}
+      {overSummary && (
+        <div
+          style={{
+            position: "fixed", top: 64, left: "50%", zIndex: 50,
+            transform: "translateX(-50%)",
+            animation: "slideDown 0.3s ease",
+            background: "rgba(10,25,15,0.95)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(16,185,129,0.35)",
+          }}
+          className="px-5 py-2.5 rounded-xl shadow-2xl text-center pointer-events-none"
+        >
+          <p className="text-[10px] text-emerald-500 uppercase tracking-wider mb-0.5">End of Over {overSummary.over}</p>
+          <p className="text-lg font-bold text-white">{overSummary.runs} runs · {overSummary.wickets} wkt{overSummary.wickets !== 1 ? "s" : ""}</p>
+          <p className="text-[11px] text-gray-400">{overSummary.bowler}</p>
+        </div>
+      )}
+
+      {/* ── Milestone popup ── */}
+      {milestone && (
+        <div
+          style={{
+            position: "fixed", top: overSummary ? 136 : 64, left: "50%", zIndex: 51,
+            transform: "translateX(-50%)",
+            animation: "slideDown 0.3s ease",
+            background: "rgba(30,20,5,0.96)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(250,204,21,0.4)",
+          }}
+          className="px-5 py-2.5 rounded-xl shadow-2xl text-center pointer-events-none"
+        >
+          <p className="text-base font-bold text-yellow-300">{milestone}</p>
+        </div>
+      )}
+
       {/* ══ HEADER ══ */}
       <div className="shrink-0 flex flex-col items-center justify-center px-4 py-3 md:py-4 gap-1"
            style={{ background: "rgba(0,0,0,0.5)", borderBottom: "1px solid rgba(255,255,255,0.09)" }}>
 
         {/* Venue + time — desktop only, above the names */}
         <p className="hidden md:block text-[10px] text-gray-600 tracking-wide uppercase">
-          Dubai Stadium · {matchTime.current} · T10 · {isSecond ? "2nd" : "1st"} Innings
+          Dubai Stadium · {matchTime.current} · {state.format} · {isSecond ? "2nd" : "1st"} Innings
         </p>
 
         {/* Team names — centred, big */}
@@ -434,6 +689,48 @@ export function MatchScreen() {
             {state.isSimulating ? "⏹ Stop" : "⚡ Sim"}
           </button>
         </div>
+
+        {/* PowerPlay badge */}
+        {(() => {
+          const ppOvers = innings.matchOvers === 5 ? 1
+                        : innings.matchOvers === 20 ? 6 : 2;
+          const isInPP = innings.totalOvers < ppOvers;
+          return isInPP ? (
+            <div
+              className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+              style={{ background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.4)", color: "#fbbf24" }}
+            >
+              ⚡ Powerplay · {ppOvers - innings.totalOvers} ov left
+            </div>
+          ) : null;
+        })()}
+
+        {/* Win probability bar — 2nd innings only */}
+        {isSecond && innings.target !== undefined && (() => {
+          const winProb = computeWinProb(innings.totalRuns, innings.target, totalBalls, innings.matchOvers, innings.totalWickets);
+          return (
+            <div className="flex items-center gap-2 w-full max-w-[280px] mx-auto mt-1">
+              <span className="text-[9px] text-gray-500 shrink-0 w-12 text-right truncate">{innings.battingTeamName.slice(0, 5)}</span>
+              <div className="flex-1 relative h-2 bg-gray-800 rounded-full overflow-hidden">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+                  style={{
+                    width: `${winProb}%`,
+                    background: winProb > 60
+                      ? "linear-gradient(90deg,#10b981,#34d399)"
+                      : winProb > 40
+                      ? "linear-gradient(90deg,#f59e0b,#fbbf24)"
+                      : "linear-gradient(90deg,#ef4444,#f87171)",
+                  }}
+                />
+              </div>
+              <span className="text-[9px] font-bold tabular-nums shrink-0"
+                    style={{ color: winProb > 60 ? "#34d399" : winProb > 40 ? "#fbbf24" : "#f87171" }}>
+                {winProb}%
+              </span>
+            </div>
+          );
+        })()}
       </div>
 
       {/* ══ MOBILE TAB BAR (hidden on desktop) ══ */}
@@ -515,7 +812,7 @@ export function MatchScreen() {
                           }`}>
                             {p?.shortName ?? "—"}
                           </span>
-                          {str && <span className="text-emerald-400 text-xs ml-1">★</span>}
+                          {str && <BatIcon className="text-emerald-400 ml-1 shrink-0 inline-block" />}
                           {bat.isOut && (
                             <span className="text-[10px] text-gray-600 ml-1">
                               ({dismissalShort(bat.dismissalType)})
@@ -620,7 +917,8 @@ export function MatchScreen() {
                          style={{ borderBottom: i < 5 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
                       {ev ? (
                         <>
-                          <div className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold ${ballBg(ev.outcome)}`}>
+                          <div className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold ${ballBg(ev.outcome)}`}
+                               style={i === trackerEvents.length - 1 ? { animation: "ballPop 0.25s ease" } : undefined}>
                             {ballLabel(ev.outcome, ev.runsScored)}
                           </div>
                           <span className="text-[11px] text-gray-400 leading-tight truncate">{ev.commentary}</span>
@@ -705,26 +1003,41 @@ export function MatchScreen() {
                   disabled={!canPlay} />
                 <div>
                   <p className="text-[9px] text-gray-600 uppercase tracking-wider mb-1">Field</p>
-                  <div className="flex gap-1">
-                    {([
-                      { v: FieldType.Attacking, label:"Attack" },
-                      { v: FieldType.Balanced,  label:"Balanced" },
-                      { v: FieldType.Defensive, label:"Defend" },
-                    ] as const).map(opt => (
-                      <button key={opt.v} onClick={() => setField(opt.v)} disabled={!canPlay}
-                        className={`flex-1 py-1 text-[10px] rounded border transition-all ${
-                          !canPlay ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
-                        } ${
-                          field === opt.v
-                            ? opt.v === FieldType.Attacking ? "bg-red-700/50 border-red-500 text-red-200"
-                            : opt.v === FieldType.Balanced  ? "bg-gray-700 border-gray-400 text-white"
-                                                            : "bg-blue-800/50 border-blue-500 text-blue-200"
-                            : "bg-gray-800 border-gray-700 text-gray-500"
-                        }`}>
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
+                  {(() => {
+                    const ppOvs = innings.matchOvers === 5 ? 1 : innings.matchOvers === 20 ? 6 : 2;
+                    const isInPP = innings.totalOvers < ppOvs;
+                    return (
+                      <>
+                        {isInPP && (
+                          <p className="text-[8px] text-yellow-600 mb-1">Powerplay — Defensive locked</p>
+                        )}
+                        <div className="flex gap-1">
+                          {([
+                            { v: FieldType.Attacking, label:"Attack" },
+                            { v: FieldType.Balanced,  label:"Balanced" },
+                            { v: FieldType.Defensive, label:"Defend" },
+                          ] as const).map(opt => {
+                            const ppLocked = isInPP && opt.v === FieldType.Defensive;
+                            const isDisabled = !canPlay || ppLocked;
+                            return (
+                              <button key={opt.v} onClick={() => !ppLocked && setField(opt.v)} disabled={isDisabled}
+                                className={`flex-1 py-1 text-[10px] rounded border transition-all ${
+                                  isDisabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
+                                } ${
+                                  field === opt.v
+                                    ? opt.v === FieldType.Attacking ? "bg-red-700/50 border-red-500 text-red-200"
+                                    : opt.v === FieldType.Balanced  ? "bg-gray-700 border-gray-400 text-white"
+                                                                    : "bg-blue-800/50 border-blue-500 text-blue-200"
+                                    : "bg-gray-800 border-gray-700 text-gray-500"
+                                }`}>
+                                {opt.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             )}
@@ -737,7 +1050,7 @@ export function MatchScreen() {
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="text-xs text-emerald-400 font-bold shrink-0">{innings.currentBatsmanOnStrike + 1}</span>
                 <span className="font-bold text-white text-sm truncate">{strikerP?.name ?? "—"}</span>
-                <span className="text-[9px] text-emerald-500 shrink-0">★</span>
+                <BatIcon className="text-emerald-500 shrink-0" />
               </div>
               <div className="shrink-0 text-right ml-2">
                 <span className="text-lg font-extrabold tabular-nums">{onStrike?.runs ?? 0}</span>
@@ -789,6 +1102,23 @@ export function MatchScreen() {
             </div>
           </div>{/* end striker sub-card */}
 
+          {/* ── Partnership strip ── */}
+          {onStrike && nonStrike && (() => {
+            const p = computePartnership(innings);
+            return (
+              <div
+                className="shrink-0 flex items-center justify-center gap-3 py-1.5 rounded-lg text-[11px]"
+                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+              >
+                <span className="text-gray-500 uppercase tracking-wider text-[9px]">Partnership</span>
+                <span className="font-bold text-white tabular-nums">
+                  {p.runs}
+                  <span className="text-gray-500 font-normal ml-1">({p.balls})</span>
+                </span>
+              </div>
+            );
+          })()}
+
           {/* ── Non-striker sub-card ── */}
           <div className="shrink-0 md:flex-1 flex flex-col rounded-lg px-3 py-2 min-h-0 overflow-hidden"
                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
@@ -821,20 +1151,128 @@ export function MatchScreen() {
         </div>{/* end right glass card */}
       </div>{/* end 2-col */}
 
-      {/* ══ FULL-WIDTH BUTTON at very bottom ══ */}
-      <div className="shrink-0 px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.35)" }}>
+      {/* ══ PER-OVER MOMENTUM STRIP ══ */}
+      <div className="shrink-0 px-3 pt-2 pb-1 flex gap-[2px]"
+           style={{ background: "rgba(0,0,0,0.25)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+        {Array.from({ length: innings.matchOvers }, (_, i) => {
+          const evts    = innings.allEvents.filter(e => e.overNumber === i);
+          const runs    = evts.reduce((s, e) => s + e.runsScored, 0);
+          const hasWkt  = evts.some(e => e.outcome === BallOutcome.Wicket);
+          const done    = i < innings.totalOvers;
+          const current = i === innings.totalOvers;
+          const bg = !done && !current ? "rgba(255,255,255,0.06)"
+                   : current           ? "rgba(255,255,255,0.28)"
+                   : hasWkt            ? "#ef4444"
+                   : runs >= 12        ? "#fbbf24"
+                   : runs >= 8         ? "#10b981"
+                   : runs >= 5         ? "#4b5563"
+                   :                    "#1f2937";
+          return (
+            <div key={i} title={done ? `Over ${i+1}: ${runs}${hasWkt?" W":""}` : current ? "In progress" : ""}
+                 style={{ flex: 1, height: 5, borderRadius: 2, backgroundColor: bg, transition: "background-color 0.3s" }} />
+          );
+        })}
+      </div>
+
+      {/* ══ DATA PANEL (shown when a chart button is active) ══ */}
+      {dataPanel && (
+        <div className="shrink-0 px-4 py-3 overflow-hidden"
+             style={{ borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.4)" }}>
+
+          {/* Win probability panel */}
+          {dataPanel === "winprob" && (
+            isSecond && innings.target !== undefined ? (() => {
+              const wp = computeWinProb(innings.totalRuns, innings.target, totalBalls, innings.matchOvers, innings.totalWickets);
+              return (
+                <div className="space-y-2">
+                  <p className="text-[9px] text-gray-500 uppercase tracking-widest">Win Probability</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-3 bg-gray-800 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-500"
+                           style={{ width: `${wp}%`, background: wp > 60 ? "linear-gradient(90deg,#10b981,#34d399)" : wp > 40 ? "linear-gradient(90deg,#f59e0b,#fbbf24)" : "linear-gradient(90deg,#ef4444,#f87171)" }} />
+                    </div>
+                    <span className="text-2xl font-black tabular-nums w-14 text-right shrink-0"
+                          style={{ color: wp > 60 ? "#34d399" : wp > 40 ? "#fbbf24" : "#f87171" }}>
+                      {wp}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-[10px] text-gray-600">
+                    <span>{innings.battingTeamName}</span>
+                    <span>Need {innings.target - innings.totalRuns} off {innings.matchOvers * 6 - totalBalls} balls · {10 - innings.totalWickets} wkts left</span>
+                  </div>
+                </div>
+              );
+            })() : (
+              <p className="text-[11px] text-gray-600 text-center py-2">Available during 2nd innings</p>
+            )
+          )}
+
+          {/* Worm chart panel */}
+          {dataPanel === "worm" && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[9px] text-gray-500 uppercase tracking-widest">Score Progression</p>
+                {isSecond && state.firstInnings && (
+                  <div className="flex gap-3">
+                    <div className="flex items-center gap-1">
+                      <div className="w-5 h-[2px] rounded" style={{ background: "#10b981" }} />
+                      <span className="text-[8px] text-gray-500">{innings.battingTeamName}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-5 h-[2px] rounded" style={{ background: "#6b7280", borderTop: "2px dashed #6b7280" }} />
+                      <span className="text-[8px] text-gray-500">{state.firstInnings.battingTeamName}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <WormChart innings={innings} firstInnings={isSecond ? state.firstInnings : null} matchOvers={innings.matchOvers} />
+            </div>
+          )}
+
+          {/* Runs-per-over bar chart panel */}
+          {dataPanel === "rpo" && (
+            <div>
+              <p className="text-[9px] text-gray-500 uppercase tracking-widest mb-2">Runs Per Over</p>
+              <RPOChart innings={innings} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══ BOTTOM ACTION BAR ══ */}
+      <div className="shrink-0 px-3 py-2.5 flex items-center gap-2"
+           style={{ borderTop: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.35)" }}>
+
+        {/* Data panel toggle buttons */}
+        {(["winprob", "worm", "rpo"] as const).map((key, idx) => {
+          const labels = ["Win%", "Worm", "R/O"];
+          const active = dataPanel === key;
+          return (
+            <button key={key}
+              onClick={() => setDataPanel(p => p === key ? null : key)}
+              className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all ${
+                active
+                  ? "bg-white/15 text-white border border-white/30"
+                  : "bg-white/[0.04] text-gray-500 border border-white/10 hover:text-gray-300"
+              }`}>
+              {labels[idx]}
+            </button>
+          );
+        })}
+
+        {/* Primary action — takes remaining ~50% of width */}
         <button
           onClick={handleNextBall}
           disabled={!canPlay}
-          className={`w-full py-3 rounded-xl text-sm font-bold uppercase tracking-widest transition-all ${
+          className={`flex-[2.2] py-2 rounded-lg text-sm font-black uppercase tracking-widest transition-all ${
             canPlay
               ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/40 active:scale-[0.98]"
               : "bg-gray-800 text-gray-600 cursor-not-allowed"
           }`}>
-          {innings.isComplete      ? "Innings Complete"
-           : state.needsBowlerChange ? "Select Bowler…"
-           : isBatting              ? "▶  Next Ball"
-                                    : "Bowl ▶"}
+          {innings.isComplete        ? "Complete"
+           : state.needsBowlerChange ? "Bowler…"
+           : isBatting               ? "Next Ball"
+                                     : "Bowl"}
         </button>
       </div>
 

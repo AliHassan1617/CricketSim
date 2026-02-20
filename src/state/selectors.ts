@@ -29,7 +29,7 @@ export function getRunRate(innings: Innings): number {
 export function getRequiredRate(innings: Innings): number | null {
   if (innings.target === undefined) return null;
   const totalBalls = innings.totalOvers * 6 + innings.ballsInCurrentOver;
-  const remainingBalls = 60 - totalBalls;
+  const remainingBalls = innings.matchOvers * 6 - totalBalls;
   if (remainingBalls <= 0) return null;
   const required = innings.target - innings.totalRuns;
   return (required / remainingBalls) * 6;

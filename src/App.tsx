@@ -1,6 +1,7 @@
 import { useGame } from "./state/gameContext";
 import { GamePhase, SidebarTab } from "./types/enums";
 import { Layout } from "./components/Layout";
+import { StartScreen } from "./screens/StartScreen";
 import { TeamPickScreen } from "./screens/TeamPickScreen";
 import { SquadScreen } from "./screens/SquadScreen";
 import { TacticsScreen } from "./screens/TacticsScreen";
@@ -12,6 +13,11 @@ import { FinalScorecardScreen } from "./screens/FinalScorecardScreen";
 
 function AppContent() {
   const { state, dispatch } = useGame();
+
+  // Start screen — splash / landing
+  if (state.phase === GamePhase.Start) {
+    return <StartScreen />;
+  }
 
   // Team pick screen — no sidebar
   if (state.phase === GamePhase.TeamPick) {

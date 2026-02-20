@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useGame } from "../state/gameContext";
-import { Innings, BatsmanInnings, BowlerSpell } from "../types/match";
+import { Innings, BatsmanInnings } from "../types/match";
 import { Player } from "../types/player";
 import { DismissalType, BallOutcome } from "../types/enums";
 import { getAllPlayers } from "../state/selectors";
@@ -207,6 +207,55 @@ function InningsScorecard({ innings, players, inningsNum }: InningsScorecardProp
   );
 }
 
+// ─── MVP / Man of the Match ───────────────────────────────────────────────────
+
+function computeMVP(
+  first: Innings,
+  second: Innings,
+  allPlayers: Player[],
+): { playerInfo: Player | undefined; statLine: string; isBat: boolean } {
+  // Best batter: highest runs across both innings
+  const allBatsmen = [...first.batsmen, ...second.batsmen];
+  const topBat = [...allBatsmen].sort((a, b) => b.runs - a.runs)[0];
+  const batScore = topBat
+    ? topBat.runs + topBat.sixes * 4 + topBat.fours * 2 + (!topBat.isOut ? 15 : 0)
+    : 0;
+
+  // Best bowler: most wickets (tiebreak: fewest runs)
+  const allBowlers = [...first.bowlers, ...second.bowlers];
+  const topBowl = [...allBowlers].sort((a, b) =>
+    b.wickets !== a.wickets ? b.wickets - a.wickets : a.runsConceded - b.runsConceded
+  )[0];
+  const bowlBalls = topBowl ? topBowl.overs * 6 + topBowl.ballsInCurrentOver : 0;
+  const bowlScore = topBowl
+    ? topBowl.wickets * 25 - topBowl.runsConceded * 0.5 + (bowlBalls > 0 ? 10 : 0)
+    : 0;
+
+  if (batScore >= bowlScore || !topBowl || topBowl.wickets < 2) {
+    const p = topBat ? allPlayers.find(pl => pl.id === topBat.playerId) : undefined;
+    const sr = topBat && topBat.balls > 0
+      ? Math.round((topBat.runs / topBat.balls) * 100)
+      : 0;
+    return {
+      playerInfo: p,
+      statLine: topBat
+        ? `${topBat.runs}${!topBat.isOut ? "*" : ""} (${topBat.balls} balls) · SR ${sr}`
+        : "—",
+      isBat: true,
+    };
+  } else {
+    const p = allPlayers.find(pl => pl.id === topBowl.playerId);
+    const econ = bowlBalls > 0
+      ? ((topBowl.runsConceded / bowlBalls) * 6).toFixed(1)
+      : "—";
+    return {
+      playerInfo: p,
+      statLine: `${topBowl.wickets}/${topBowl.runsConceded} · Econ ${econ}`,
+      isBat: false,
+    };
+  }
+}
+
 // ─── Tactical Summary ────────────────────────────────────────────────────────
 
 function buildTacticalSummary(first: Innings, second: Innings): string[] {
@@ -326,11 +375,48 @@ export function FinalScorecardScreen() {
 
   const tactics = buildTacticalSummary(first, second);
   const activeInnings = activeTab === 1 ? first : second;
+  const mvp = computeMVP(first, second, allPlayers);
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
       {/* Result header */}
       <ResultHeader first={first} second={second} />
+
+      {/* ── MVP / Man of the Match card ── */}
+      <div className="px-4 pt-4 pb-2 max-w-2xl mx-auto w-full">
+        <div
+          className="rounded-xl px-4 py-3.5 flex items-center gap-4"
+          style={{
+            background: "linear-gradient(135deg, rgba(251,191,36,0.13), rgba(251,191,36,0.05))",
+            border: "1px solid rgba(251,191,36,0.35)",
+          }}
+        >
+          <div
+            className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 text-[10px] font-black uppercase tracking-widest"
+            style={{ background: "rgba(251,191,36,0.2)", color: "#fbbf24" }}
+          >
+            MVP
+          </div>
+          <div className="min-w-0">
+            <p className="text-[9px] text-yellow-500 uppercase tracking-widest font-bold mb-0.5">
+              Man of the Match
+            </p>
+            <p className="text-white font-black text-base leading-tight truncate">
+              {mvp.playerInfo?.name ?? "—"}
+            </p>
+            <p className="text-yellow-300 text-xs font-medium">{mvp.statLine}</p>
+          </div>
+          <div
+            className="ml-auto shrink-0 text-[9px] font-bold uppercase px-2 py-1 rounded-full"
+            style={{
+              background: mvp.isBat ? "rgba(59,130,246,0.2)" : "rgba(239,68,68,0.2)",
+              color: mvp.isBat ? "#93c5fd" : "#fca5a5",
+            }}
+          >
+            {mvp.isBat ? "BAT" : "BOWL"}
+          </div>
+        </div>
+      </div>
 
       {/* Innings tabs */}
       <div className="flex border-b border-gray-800 bg-gray-900/50">

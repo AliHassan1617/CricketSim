@@ -58,8 +58,8 @@ export function computeBatScore(
   const confidenceBonus = (confidence - 50) * 0.15;
   const randomVariance = randInt(-8, 8);
 
-  // Raised from 0.25 → 0.30 so tail-enders (tech ~30) reach net ~-20
-  // instead of net ~-30, giving them a fighting chance to score some runs.
+  // 0.26 keeps tail-enders above net ~-25 while preventing elite batsmen
+  // (tech ~85-90) from reaching net +20 against average bowlers.
   return (
     baseTechnique * 0.30 +
     sideSkill +

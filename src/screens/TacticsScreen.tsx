@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useGame } from "../state/gameContext";
 import { SidebarTab } from "../types/enums";
+
 import { PlayerCard } from "../components/PlayerCard";
 import { BattingOrderList } from "../components/BattingOrderList";
 import { PlayerProfileModal } from "../components/PlayerProfileModal";
@@ -23,6 +24,26 @@ export function TacticsScreen() {
   const [battingOrder, setBattingOrder] = useState<string[]>(state.battingOrder);
 
   if (!team) return null;
+
+  // Must click "Select Starting XI" on the Match screen first
+  if (!state.tacticsUnlocked) {
+    return (
+      <div className="p-6 max-w-5xl mx-auto text-white flex flex-col items-center justify-center min-h-[50vh] gap-4 text-center">
+        <div className="text-5xl mb-2">🔒</div>
+        <h2 className="text-xl font-bold text-gray-300">Tactics Locked</h2>
+        <p className="text-gray-500 max-w-sm">
+          Go to the <span className="text-emerald-400 font-semibold">Match</span> tab, select your format,
+          then click <span className="text-emerald-400 font-semibold">Select Starting XI</span> to begin setting up your team.
+        </p>
+        <button
+          onClick={() => dispatch({ type: "SET_SIDEBAR_TAB", payload: { tab: SidebarTab.Match } })}
+          className="mt-2 px-6 py-2.5 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-sm font-bold transition-colors"
+        >
+          Go to Match →
+        </button>
+      </div>
+    );
+  }
 
   const selectedPlayer = state.selectedPlayerId
     ? team.players.find((p) => p.id === state.selectedPlayerId) ?? null

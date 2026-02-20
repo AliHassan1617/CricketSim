@@ -6,9 +6,10 @@ export function computePressure(
   target: number,
   currentRuns: number,
   totalBalls: number,
-  wicketsLost: number
+  wicketsLost: number,
+  totalMatchBalls = 60
 ): PressureFactors {
-  const remainingBalls = 60 - totalBalls; // 10 overs = 60 balls
+  const remainingBalls = totalMatchBalls - totalBalls;
   const remainingOvers = remainingBalls / 6;
   const requiredRuns = target - currentRuns;
   const requiredRate = remainingBalls > 0 ? (requiredRuns / remainingBalls) * 6 : 99;

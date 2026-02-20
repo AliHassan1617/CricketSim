@@ -1,13 +1,14 @@
 import { GameAction } from "./actions";
-import { BallOutcome, GamePhase, PitchType, SidebarTab } from "../types/enums";
+import { BallOutcome, GamePhase, MatchFormat, PitchType, SidebarTab } from "../types/enums";
 import { BatsmanInnings, BowlerSpell, Innings, MatchState } from "../types/match";
 import { Player, Team } from "../types/player";
 import { updateBatsmanConfidence, updateBowlerConfidence } from "../engine/confidence";
 
 export const initialState: MatchState = {
-  phase: GamePhase.TeamPick,
+  phase: GamePhase.Start,
   sidebarTab: SidebarTab.Squad,
   pitchType: PitchType.Flat,
+  format: MatchFormat.T10,
   userTeam: null,
   opponentTeam: null,
   selectedXI: [],
@@ -21,6 +22,7 @@ export const initialState: MatchState = {
   needsBowlerChange: false,
   selectedPlayerId: null,
   isSimulating: false,
+  tacticsUnlocked: false,
 };
 
 /**
@@ -92,6 +94,7 @@ function createInnings(
   bowlerRotation: string[],   // all eligible bowlers (non-keepers from bowling XI)
   allPlayers: Player[],
   isUserBatting: boolean,
+  matchOvers: number,
   target?: number
 ): Innings {
   const batsmen: BatsmanInnings[] = battingOrder.map((id, index) => ({
@@ -118,7 +121,7 @@ function createInnings(
     wides: 0,
     noBalls: 0,
     confidence: 50,
-    maxOvers: 2,
+    maxOvers: Math.max(1, Math.round(matchOvers / 5)),
   }));
 
   // allPlayers is already passed in — avoid unused-var warning
@@ -149,6 +152,7 @@ function createInnings(
     nextBatsmanIndex: 2,
     isFreeHit: false,
     isUserBatting,
+    matchOvers,
   };
 }
 
@@ -209,6 +213,9 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
       if (!state.userTeam || !state.opponentTeam) return state;
 
       const allPlayers = [...state.userTeam.players, ...state.opponentTeam.players];
+      const matchOvers = state.format === MatchFormat.T5 ? 5
+                       : state.format === MatchFormat.T20 ? 20
+                       : 10;
 
       if (state.currentInnings === 1) {
         let battingTeam: Team;
@@ -239,7 +246,7 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
           battingTeam.id, bowlingTeam.id,
           battingTeam.name, bowlingTeam.name,
           battingOrder, bowlerRotation, allPlayers,
-          isUserBatting
+          isUserBatting, matchOvers
         );
 
         // If user is bowling, they must pick the opening bowler
@@ -283,7 +290,7 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
           battingTeam.id, bowlingTeam.id,
           battingTeam.name, bowlingTeam.name,
           battingOrder, bowlerRotation, allPlayers,
-          isUserBatting, target
+          isUserBatting, matchOvers, target
         );
 
         // If user is bowling, they must pick the opening bowler
@@ -455,7 +462,7 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
         newInnings.currentBatsmanOnStrike = newInnings.currentBatsmanNonStrike;
         newInnings.currentBatsmanNonStrike = temp;
 
-        if (newInnings.totalOvers >= 10) {
+        if (newInnings.totalOvers >= newInnings.matchOvers) {
           newInnings.isComplete = true;
         } else if (!newInnings.isComplete) {
           needsBowlerChange = true;
@@ -502,12 +509,24 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
       return { ...state, currentInnings: 2 };
     }
 
+    case "SET_FORMAT": {
+      return { ...state, format: action.payload.format };
+    }
+
     case "SET_SIMULATING": {
       return { ...state, isSimulating: action.payload.value };
     }
 
+    case "UNLOCK_TACTICS": {
+      return { ...state, tacticsUnlocked: true };
+    }
+
     case "END_MATCH": {
       return { ...state, phase: GamePhase.FinalScorecard };
+    }
+
+    case "START_GAME": {
+      return { ...state, phase: GamePhase.TeamPick };
     }
 
     case "RESET_GAME": {

@@ -1,6 +1,6 @@
 import { BowlerSpell } from "../types/match";
 import { Player } from "../types/player";
-import { formatOvers, formatEconomy } from "../utils/format";
+import { formatOvers } from "../utils/format";
 
 interface BowlerChangeModalProps {
   availableBowlers: BowlerSpell[];
@@ -12,18 +12,12 @@ function getPlayerInfo(players: Player[], playerId: string): Player | undefined 
   return players.find((p) => p.id === playerId);
 }
 
-function skillLabel(value: number): string {
-  if (value >= 80) return "Elite";
-  if (value >= 65) return "Good";
-  if (value >= 50) return "Decent";
-  return "Avg";
+function barColor(value: number): string {
+  return value >= 80 ? "#10b981" : value >= 65 ? "#f59e0b" : "#3b82f6";
 }
 
-function skillColor(value: number): string {
-  if (value >= 80) return "text-emerald-400";
-  if (value >= 65) return "text-yellow-400";
-  if (value >= 50) return "text-blue-400";
-  return "text-gray-400";
+function confColor(value: number): string {
+  return value >= 70 ? "#10b981" : value >= 45 ? "#f59e0b" : "#ef4444";
 }
 
 export function BowlerChangeModal({
@@ -31,7 +25,6 @@ export function BowlerChangeModal({
   players,
   onSelect,
 }: BowlerChangeModalProps) {
-  // Sort best bowlers first
   const sorted = [...availableBowlers].sort((a, b) => {
     const pa = getPlayerInfo(players, a.playerId);
     const pb = getPlayerInfo(players, b.playerId);
@@ -40,58 +33,125 @@ export function BowlerChangeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-      <div className="relative bg-gray-900 border border-gray-700 rounded-xl p-5 w-full max-w-md mx-4 shadow-2xl">
-        <h2 className="text-lg font-bold text-white mb-0.5">Select Bowler</h2>
-        <p className="text-xs text-gray-500 mb-4">
-          Any non-keeper can bowl. Max 2 overs each. The previous bowler can't bowl consecutive overs.
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
+      <div
+        className="relative rounded-2xl p-5 w-full max-w-md mx-4 shadow-2xl"
+        style={{
+          background: "rgba(8,12,22,0.98)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          backdropFilter: "blur(16px)",
+        }}
+      >
+        <p className="text-[10px] text-gray-600 uppercase tracking-widest mb-1">New Over</p>
+        <h2 className="text-lg font-black text-white mb-0.5">Select Bowler</h2>
+        <p className="text-xs text-gray-600 mb-4">
+          Max 2 overs each · Previous bowler cannot bowl consecutive overs
         </p>
 
-        <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+        <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
           {sorted.map((bowler) => {
             const player = getPlayerInfo(players, bowler.playerId);
             const totalBalls = bowler.overs * 6 + bowler.ballsInCurrentOver;
             const oversRemaining = bowler.maxOvers - bowler.overs;
             const hasBowled = totalBalls > 0;
             const skill = player?.bowling.mainSkill ?? 0;
+            const control = player?.bowling.control ?? 0;
+            const variation = player?.bowling.variation ?? 0;
             const bowlerType = player?.bowling.bowlerType ?? "pace";
+            const isPace = bowlerType === "pace";
 
             return (
               <button
                 key={bowler.playerId}
                 onClick={() => onSelect(bowler.playerId)}
-                className="w-full flex items-center justify-between px-4 py-3 bg-gray-800 hover:bg-emerald-900/30 border border-gray-700 hover:border-emerald-600 rounded-lg transition-colors cursor-pointer text-left"
+                className="w-full text-left px-3 py-2.5 rounded-xl transition-all cursor-pointer group"
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.09)",
+                }}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLButtonElement;
+                  el.style.background = "rgba(16,185,129,0.09)";
+                  el.style.borderColor = "rgba(16,185,129,0.4)";
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLButtonElement;
+                  el.style.background = "rgba(255,255,255,0.04)";
+                  el.style.borderColor = "rgba(255,255,255,0.09)";
+                }}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-white font-medium truncate">
+                {/* Top row: name + type chip + overs info */}
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-white font-bold text-sm truncate">
                       {player?.shortName ?? bowler.playerId}
                     </span>
-                    <span className="text-xs text-gray-600 capitalize shrink-0">
-                      {player?.role}
+                    <span
+                      className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
+                      style={{
+                        background: isPace ? "rgba(239,68,68,0.2)" : "rgba(168,85,247,0.2)",
+                        color: isPace ? "#f87171" : "#c084fc",
+                      }}
+                    >
+                      {bowlerType}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3 mt-0.5">
-                    <span className="text-xs text-gray-500 capitalize">{bowlerType}</span>
-                    <span className={`text-xs font-semibold ${skillColor(skill)}`}>
-                      {skillLabel(skill)} · {skill}
-                    </span>
+                  <div className="text-right shrink-0 ml-3">
+                    <p
+                      className="text-xs font-bold tabular-nums"
+                      style={{ color: oversRemaining === 2 ? "#34d399" : "#fbbf24" }}
+                    >
+                      {oversRemaining} ov left
+                    </p>
                     {hasBowled && (
-                      <span className="text-xs text-gray-500">
+                      <p className="text-[9px] text-gray-500 tabular-nums">
                         {formatOvers(totalBalls)}-{bowler.runsConceded}-{bowler.wickets}
-                        {" · "}
-                        {formatEconomy(bowler.runsConceded, totalBalls)}
-                      </span>
+                      </p>
                     )}
                     {!hasBowled && (
-                      <span className="text-xs text-gray-700 italic">not yet bowled</span>
+                      <p className="text-[9px] text-gray-700 italic">fresh</p>
                     )}
                   </div>
                 </div>
-                <div className="text-right shrink-0 ml-3">
-                  <span className={`text-xs font-semibold ${oversRemaining === 2 ? "text-emerald-400" : "text-yellow-400"}`}>
-                    {oversRemaining} ov left
-                  </span>
+
+                {/* Skill bars */}
+                <div className="space-y-1">
+                  {[
+                    { label: "Skill", value: skill },
+                    { label: "Ctrl",  value: control },
+                    { label: "Var",   value: variation },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span className="text-[9px] text-gray-600 w-6 shrink-0">{label}</span>
+                      <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-300"
+                          style={{ width: `${value}%`, backgroundColor: barColor(value) }}
+                        />
+                      </div>
+                      <span className="text-[9px] text-gray-500 w-5 text-right tabular-nums">{value}</span>
+                    </div>
+                  ))}
+
+                  {/* Form / confidence */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] text-gray-600 w-6 shrink-0">Form</span>
+                    <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-300"
+                        style={{
+                          width: `${bowler.confidence}%`,
+                          backgroundColor: confColor(bowler.confidence),
+                        }}
+                      />
+                    </div>
+                    <span
+                      className="text-[9px] w-5 text-right tabular-nums font-semibold"
+                      style={{ color: confColor(bowler.confidence) }}
+                    >
+                      {Math.round(bowler.confidence)}
+                    </span>
+                  </div>
                 </div>
               </button>
             );

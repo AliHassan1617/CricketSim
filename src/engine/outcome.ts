@@ -3,8 +3,11 @@ import { weightedPick } from "../utils/random";
 import { applyIntentAndFieldMultipliers } from "./field";
 
 // Base probability table: [Dot, Single, Double, Three, Four, Six, Wicket]
-// Negative net bands unchanged. Positive net bands have reduced 4s/6s so a
-// dominant batsman still scores freely but not at 18+ RPO.
+// Negative net bands: bowl-dominant — high wicket rates, few scoring shots.
+// Positive net bands: bat-dominant — more singles/doubles, MODEST boundaries.
+// Four/Six are deliberately low here because Aggressive+Attacking multipliers
+// in field.ts stack on top (Four×1.475, Six×1.512) — keeping base rates low
+// prevents the combined boundary rate from reaching the 36-43% seen before.
 // NOTE: A flat intent bonus is added in resolveOutcome — do NOT bake in
 //       aggressive risk here, keep these weights intent-neutral.
 const PROBABILITY_TABLE: { minNet: number; weights: number[] }[] = [
@@ -12,10 +15,10 @@ const PROBABILITY_TABLE: { minNet: number; weights: number[] }[] = [
   { minNet: -30,       weights: [42, 18, 5, 1, 4, 0,  9] },  // -30→-20 → wicket ~12%
   { minNet: -20,       weights: [32, 23, 8, 2, 7, 1,  7] },  // -20→-10 → wicket ~9%
   { minNet: -10,       weights: [24, 27, 11, 2, 9, 2,  5] }, // -10→0   → wicket ~6%
-  { minNet: 0,         weights: [20, 28, 12, 3, 11, 3, 3] }, // 0→10    → wicket ~3.7%, fewer boundaries
-  { minNet: 10,        weights: [14, 26, 14, 4, 14, 5, 2] }, // 10→20   → wicket ~2.5%
-  { minNet: 20,        weights: [10, 22, 14, 5, 17, 7, 1] }, // 20→30   → wicket ~1.3%
-  { minNet: 30,        weights: [ 8, 22, 15, 6, 18, 8, 1] }, // > 30    → wicket ~1.3%
+  { minNet: 0,         weights: [22, 30, 12, 2, 6, 2, 3] },  // 0→10    → wicket base 3, boundaries ~10%
+  { minNet: 10,        weights: [18, 30, 13, 3, 7, 2, 2] },  // 10→20   → wicket base 2, boundaries ~12%
+  { minNet: 20,        weights: [15, 29, 13, 3, 7, 2, 1] },  // 20→30   → wicket base 1, boundaries ~12%
+  { minNet: 30,        weights: [13, 28, 14, 3, 8, 3, 1] },  // > 30    → wicket base 1, boundaries ~15%
 ];
 
 function interpolateWeights(net: number): number[] {

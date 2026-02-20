@@ -2,7 +2,42 @@ import { useState } from "react";
 import { useGame } from "../state/gameContext";
 import { PitchBadge } from "../components/PitchBadge";
 
-type TossStep = "call" | "result" | "choose" | "ready";
+type TossStep = "call" | "flipping" | "result" | "choose" | "ready";
+
+const PITCH_DESC: Record<string, string> = {
+  flat: "Flat pitch · Expect high scores",
+  "spin-friendly": "Spin-friendly · Turn on offer",
+  "seam-friendly": "Seam-friendly · Pace bowlers rule",
+};
+
+// Simple coin face — shows the label text inside the gold circle
+function CoinFace({
+  label,
+  spinning = false,
+  size = 112,
+}: {
+  label: string;
+  spinning?: boolean;
+  size?: number;
+}) {
+  return (
+    <div
+      className="rounded-full flex items-center justify-center font-black select-none"
+      style={{
+        width: size,
+        height: size,
+        background: "linear-gradient(135deg, #92400e, #fbbf24, #92400e)",
+        boxShadow: "0 0 40px rgba(251,191,36,0.25), inset 0 2px 4px rgba(255,255,255,0.25)",
+        animation: spinning ? "coinFlip 1.4s ease-in-out" : undefined,
+        fontSize: size * 0.32,
+        color: "#451a03",
+        letterSpacing: "-0.02em",
+      }}
+    >
+      {label}
+    </div>
+  );
+}
 
 export function TossScreen() {
   const { state, dispatch } = useGame();
@@ -12,23 +47,21 @@ export function TossScreen() {
   const [userWonToss, setUserWonToss] = useState(false);
   const [userBatsFirst, setUserBatsFirst] = useState(true);
 
-  const userTeamName = state.userTeam?.name ?? "Your Team";
-  const opponentTeamName = state.opponentTeam?.name ?? "Opponent";
+  const userTeamName = state.userTeam?.name  ?? "Your Team";
+  const userColor    = state.userTeam?.color ?? "#22c55e";
+  const oppTeamName  = state.opponentTeam?.name ?? "Opponent";
 
   const handleCoinFlip = (call: "heads" | "tails") => {
     setUserCall(call);
-    const result = Math.random() < 0.5 ? "heads" : "tails";
-    setFlipResult(result);
-    const won = call === result;
-    setUserWonToss(won);
-
-    if (!won) {
-      // AI decides — randomly choose bat or bowl
-      const aiBatsFirst = Math.random() < 0.5;
-      setUserBatsFirst(!aiBatsFirst); // if AI bats first, user doesn't
-    }
-
-    setStep("result");
+    setStep("flipping");
+    setTimeout(() => {
+      const result = Math.random() < 0.5 ? "heads" : "tails";
+      setFlipResult(result);
+      const won = call === result;
+      setUserWonToss(won);
+      if (!won) setUserBatsFirst(Math.random() < 0.5);
+      setStep("result");
+    }, 1400);
   };
 
   const handleChoice = (choice: "bat" | "bowl") => {
@@ -36,97 +69,146 @@ export function TossScreen() {
     setStep("ready");
   };
 
+  const handleContinueAfterResult = () => {
+    setStep(userWonToss ? "choose" : "ready");
+  };
+
   const handleConfirmToss = () => {
     dispatch({
       type: "COMPLETE_TOSS",
-      payload: {
-        winner: userWonToss ? "user" : "opponent",
-        userBatsFirst,
-      },
+      payload: { winner: userWonToss ? "user" : "opponent", userBatsFirst },
     });
     dispatch({ type: "START_INNINGS" });
   };
 
-  // After AI decides, skip to ready
-  const handleContinueAfterResult = () => {
-    if (userWonToss) {
-      setStep("choose");
-    } else {
-      setStep("ready");
-    }
-  };
-
   return (
-    <div className="p-6 text-white flex items-center justify-center min-h-[80vh]">
-      <div className="text-center space-y-6 max-w-md mx-auto">
-        <h1 className="text-3xl font-bold text-emerald-400">The Toss</h1>
-        <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
-          <span>Pitch:</span>
-          <PitchBadge pitchType={state.pitchType} />
+    <div
+      className="min-h-screen text-white flex items-center justify-center px-4"
+      style={{ background: "#09090b" }}
+    >
+      <div className="w-full max-w-sm mx-auto">
+
+        {/* Header */}
+        <div className="text-center mb-8" style={{ animation: "fadeInUp 0.4s ease" }}>
+          <p className="text-[10px] text-gray-600 uppercase tracking-widest mb-2">
+            {state.format} · {userTeamName} vs {oppTeamName}
+          </p>
+          <h1 className="text-4xl font-black text-white mb-3">The Toss</h1>
+          <div
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full"
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+          >
+            <PitchBadge pitchType={state.pitchType} />
+            <span className="text-gray-500 text-xs">
+              {PITCH_DESC[state.pitchType as string] ?? state.pitchType}
+            </span>
+          </div>
         </div>
 
-        {/* Step 1: Call heads or tails */}
+        {/* ── Step: call ── */}
         {step === "call" && (
-          <div className="space-y-4">
-            <p className="text-lg text-gray-300">Call it in the air!</p>
-            <div className="flex gap-4 justify-center">
-              <button
-                onClick={() => handleCoinFlip("heads")}
-                className="px-8 py-4 bg-yellow-600 hover:bg-yellow-500 rounded-xl text-xl font-bold transition-colors"
-              >
-                Heads
-              </button>
-              <button
-                onClick={() => handleCoinFlip("tails")}
-                className="px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-xl font-bold transition-colors"
-              >
-                Tails
-              </button>
+          <div className="space-y-6" style={{ animation: "fadeInUp 0.4s ease" }}>
+            <div className="flex justify-center">
+              <CoinFace label="?" size={112} />
+            </div>
+            <p className="text-center text-gray-500 text-sm">Call it in the air</p>
+            <div className="flex gap-3">
+              {(["heads", "tails"] as const).map(side => (
+                <button
+                  key={side}
+                  onClick={() => handleCoinFlip(side)}
+                  className="flex-1 py-4 rounded-xl font-bold text-base capitalize transition-all hover:scale-105 active:scale-95"
+                  style={{
+                    background: side === "heads"
+                      ? "linear-gradient(135deg, #92400e, #b45309)"
+                      : "linear-gradient(135deg, #1e3a5f, #1d4ed8)",
+                    boxShadow: side === "heads"
+                      ? "0 4px 20px rgba(180,83,9,0.25)"
+                      : "0 4px 20px rgba(29,78,216,0.25)",
+                  }}
+                >
+                  {side}
+                </button>
+              ))}
             </div>
           </div>
         )}
 
-        {/* Step 2: Show result */}
+        {/* ── Step: flipping ── */}
+        {step === "flipping" && (
+          <div className="flex flex-col items-center gap-6" style={{ animation: "fadeInUp 0.3s ease" }}>
+            <CoinFace label="?" size={112} spinning />
+            <p className="text-gray-600 text-sm tracking-widest uppercase">Tossing…</p>
+          </div>
+        )}
+
+        {/* ── Step: result ── */}
         {step === "result" && (
-          <div className="space-y-4">
-            <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 space-y-3">
-              <p className="text-gray-400">
-                You called: <span className="text-white font-semibold capitalize">{userCall}</span>
+          <div className="space-y-5" style={{ animation: "popIn 0.4s ease" }}>
+            <div
+              className="rounded-2xl p-6 text-center space-y-4"
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                border: `1.5px solid ${userWonToss ? "rgba(34,197,94,0.35)" : "rgba(239,68,68,0.35)"}`,
+              }}
+            >
+              <div className="flex justify-center">
+                <CoinFace label={flipResult === "heads" ? "H" : "T"} size={80} />
+              </div>
+              <p className="text-gray-400 text-sm">
+                You called <span className="text-white font-bold capitalize">{userCall}</span>
+                {" — "}it's{" "}
+                <span className="text-yellow-400 font-bold capitalize">{flipResult}!</span>
               </p>
-              <p className="text-2xl font-bold">
-                It's <span className="text-yellow-400 capitalize">{flipResult}</span>!
+              <p className={`text-2xl font-black ${userWonToss ? "text-emerald-400" : "text-red-400"}`}>
+                {userWonToss ? `${userTeamName} win the toss!` : `${oppTeamName} win the toss!`}
               </p>
-              <p className={`text-xl font-bold ${userWonToss ? "text-emerald-400" : "text-red-400"}`}>
-                {userWonToss
-                  ? `${userTeamName} won the toss!`
-                  : `${opponentTeamName} won the toss!`}
-              </p>
+              {!userWonToss && (
+                <p className="text-gray-500 text-sm">
+                  {oppTeamName} chose to{" "}
+                  <span className="text-white font-semibold">
+                    {userBatsFirst ? "bowl" : "bat"}
+                  </span>{" "}
+                  first
+                </p>
+              )}
             </div>
             <button
               onClick={handleContinueAfterResult}
-              className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-lg font-bold transition-colors"
+              className="w-full py-3.5 rounded-xl font-bold text-base transition-all hover:scale-[1.02] active:scale-[0.98]"
+              style={{ backgroundColor: userWonToss ? "#16a34a" : "#dc2626" }}
             >
-              Continue
+              {userWonToss ? "Make Your Choice" : "Continue"}
             </button>
           </div>
         )}
 
-        {/* Step 3: User chooses (only if they won) */}
+        {/* ── Step: choose ── */}
         {step === "choose" && (
-          <div className="space-y-4">
-            <p className="text-lg text-gray-300">
-              You won the toss! What would you like to do?
-            </p>
-            <div className="flex gap-4 justify-center">
+          <div className="space-y-6" style={{ animation: "fadeInUp 0.35s ease" }}>
+            <div className="text-center">
+              <p className="text-emerald-400 text-xl font-black mb-1">You won the toss!</p>
+              <p className="text-gray-500 text-sm">What would you like to do?</p>
+            </div>
+            <div className="flex gap-3">
               <button
                 onClick={() => handleChoice("bat")}
-                className="px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-xl font-bold transition-colors"
+                className="flex-1 py-5 rounded-xl font-bold text-lg transition-all hover:scale-105 active:scale-95"
+                style={{
+                  background: `linear-gradient(135deg, ${userColor}88, ${userColor}bb)`,
+                  border: `1.5px solid ${userColor}60`,
+                  boxShadow: `0 4px 20px ${userColor}22`,
+                }}
               >
                 Bat First
               </button>
               <button
                 onClick={() => handleChoice("bowl")}
-                className="px-8 py-4 bg-red-600 hover:bg-red-500 rounded-xl text-xl font-bold transition-colors"
+                className="flex-1 py-5 rounded-xl font-bold text-lg transition-all hover:scale-105 active:scale-95"
+                style={{
+                  background: "linear-gradient(135deg, #1f2937, #374151)",
+                  border: "1.5px solid rgba(255,255,255,0.1)",
+                }}
               >
                 Bowl First
               </button>
@@ -134,38 +216,54 @@ export function TossScreen() {
           </div>
         )}
 
-        {/* Step 4: Ready to start */}
+        {/* ── Step: ready ── */}
         {step === "ready" && (
-          <div className="space-y-4">
-            <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 space-y-3">
-              <p className="text-gray-400">
-                Toss won by:{" "}
-                <span className="text-emerald-300 font-semibold">
-                  {userWonToss ? userTeamName : opponentTeamName}
-                </span>
-              </p>
-              <p className="text-lg">
-                <span className="text-white font-semibold">{userTeamName}</span>{" "}
-                will{" "}
-                <span className="text-emerald-300 font-bold">
-                  {userBatsFirst ? "bat" : "bowl"}
-                </span>{" "}
-                first
-              </p>
-              <p className="text-sm text-gray-500">
-                {userBatsFirst
-                  ? `${opponentTeamName} will bowl`
-                  : `${opponentTeamName} will bat`}
-              </p>
+          <div className="space-y-5" style={{ animation: "popIn 0.4s ease" }}>
+            <div
+              className="rounded-2xl overflow-hidden"
+              style={{ border: "1.5px solid rgba(255,255,255,0.1)" }}
+            >
+              <div
+                className="py-3 px-5 text-center"
+                style={{ background: `linear-gradient(90deg, ${userColor}18, transparent)` }}
+              >
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Match is set</p>
+              </div>
+              <div className="px-6 py-5 space-y-4" style={{ background: "rgba(255,255,255,0.03)" }}>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400 text-sm">Toss won by</span>
+                  <span className="text-white font-semibold">
+                    {userWonToss ? userTeamName : oppTeamName}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400 text-sm">{userTeamName} will</span>
+                  <span className="font-black text-emerald-400 text-lg tracking-wide">
+                    {userBatsFirst ? "BAT FIRST" : "BOWL FIRST"}
+                  </span>
+                </div>
+                <div
+                  className="flex justify-between items-center text-sm text-gray-500 pt-3"
+                  style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+                >
+                  <span>{oppTeamName}</span>
+                  <span>{userBatsFirst ? "bowling" : "batting"}</span>
+                </div>
+              </div>
             </div>
             <button
               onClick={handleConfirmToss}
-              className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xl font-bold transition-colors"
+              className="w-full py-4 rounded-xl text-base font-black tracking-wide transition-all hover:scale-[1.02] active:scale-[0.98]"
+              style={{
+                background: "linear-gradient(135deg, #16a34a, #15803d)",
+                boxShadow: "0 6px 24px rgba(22,163,74,0.25)",
+              }}
             >
               Start Match
             </button>
           </div>
         )}
+
       </div>
     </div>
   );

@@ -1,8 +1,9 @@
 import { BallEvent } from "../types/match";
 import { Team } from "../types/player";
-import { BattingIntent, FieldType, PitchType, SidebarTab } from "../types/enums";
+import { BattingIntent, FieldType, MatchFormat, PitchType, SidebarTab } from "../types/enums";
 
 export type GameAction =
+  | { type: "START_GAME" }
   | { type: "PICK_TEAM"; payload: { userTeam: Team; opponentTeam: Team } }
   | { type: "SET_SIDEBAR_TAB"; payload: { tab: SidebarTab } }
   | { type: "OPEN_PLAYER_PROFILE"; payload: { playerId: string } }
@@ -22,4 +23,6 @@ export type GameAction =
   | { type: "START_SECOND_INNINGS" }
   | { type: "END_MATCH" }
   | { type: "SET_SIMULATING"; payload: { value: boolean } }
+  | { type: "SET_FORMAT"; payload: { format: MatchFormat } }
+  | { type: "UNLOCK_TACTICS" }
   | { type: "RESET_GAME" };
