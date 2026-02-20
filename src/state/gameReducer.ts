@@ -23,6 +23,8 @@ export const initialState: MatchState = {
   selectedPlayerId: null,
   isSimulating: false,
   tacticsUnlocked: false,
+  pendingBatsmanSelection: null,
+  stadium: null,
 };
 
 /**
@@ -163,7 +165,7 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
         ...state,
         userTeam: action.payload.userTeam,
         opponentTeam: action.payload.opponentTeam,
-        phase: GamePhase.PreMatch,
+        phase: GamePhase.MatchSetup,
         sidebarTab: SidebarTab.Squad,
       };
     }
@@ -242,12 +244,20 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
           isUserBatting = false;
         }
 
-        const innings = createInnings(
+        let innings = createInnings(
           battingTeam.id, bowlingTeam.id,
           battingTeam.name, bowlingTeam.name,
-          battingOrder, bowlerRotation, allPlayers,
+          isUserBatting ? [] : battingOrder,
+          bowlerRotation, allPlayers,
           isUserBatting, matchOvers
         );
+
+        // User batting: start with empty batsmen array — openers chosen live
+        let pendingBatsman: "openers" | "next" | null = null;
+        if (isUserBatting) {
+          innings = { ...innings, batsmen: [] };
+          pendingBatsman = "openers";
+        }
 
         // If user is bowling, they must pick the opening bowler
         const needsBowlerChange = !isUserBatting;
@@ -257,6 +267,7 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
           firstInnings: innings,
           phase: GamePhase.FirstInnings,
           needsBowlerChange,
+          pendingBatsmanSelection: pendingBatsman,
         };
 
       } else {
@@ -286,12 +297,20 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
           isUserBatting = true;
         }
 
-        const innings = createInnings(
+        let innings = createInnings(
           battingTeam.id, bowlingTeam.id,
           battingTeam.name, bowlingTeam.name,
-          battingOrder, bowlerRotation, allPlayers,
+          isUserBatting ? [] : battingOrder,
+          bowlerRotation, allPlayers,
           isUserBatting, matchOvers, target
         );
+
+        // User batting: start with empty batsmen array — openers chosen live
+        let pendingBatsman: "openers" | "next" | null = null;
+        if (isUserBatting) {
+          innings = { ...innings, batsmen: [] };
+          pendingBatsman = "openers";
+        }
 
         // If user is bowling, they must pick the opening bowler
         const needsBowlerChange = !isUserBatting;
@@ -301,6 +320,7 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
           secondInnings: innings,
           phase: GamePhase.SecondInnings,
           needsBowlerChange,
+          pendingBatsmanSelection: pendingBatsman,
         };
       }
     }
@@ -428,12 +448,27 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
       }
 
       // Handle wicket — next batsman comes in
+      let pendingBatsman: "openers" | "next" | null = state.pendingBatsmanSelection;
       if (event.outcome === BallOutcome.Wicket) {
-        if (newInnings.totalWickets >= 10 || newInnings.nextBatsmanIndex >= innings.battingOrder.length) {
-          newInnings.isComplete = true;
+        if (innings.isUserBatting) {
+          // User batting: dynamically prompt for next batsman
+          const remaining = state.selectedXI.filter(
+            id => !newInnings.battingOrder.includes(id)
+          );
+          if (newInnings.totalWickets < 10 && remaining.length > 0) {
+            newInnings.currentBatsmanOnStrike = newInnings.nextBatsmanIndex;
+            newInnings.nextBatsmanIndex += 1;
+            pendingBatsman = "next";
+          } else {
+            newInnings.isComplete = true;
+          }
         } else {
-          newInnings.currentBatsmanOnStrike = newInnings.nextBatsmanIndex;
-          newInnings.nextBatsmanIndex += 1;
+          if (newInnings.totalWickets >= 10 || newInnings.nextBatsmanIndex >= innings.battingOrder.length) {
+            newInnings.isComplete = true;
+          } else {
+            newInnings.currentBatsmanOnStrike = newInnings.nextBatsmanIndex;
+            newInnings.nextBatsmanIndex += 1;
+          }
         }
       }
 
@@ -487,6 +522,7 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
         [inningsKey]: newInnings,
         phase: newPhase,
         needsBowlerChange: needsBowlerChange && !newInnings.isComplete,
+        pendingBatsmanSelection: newInnings.isComplete ? null : pendingBatsman,
       };
     }
 
@@ -526,7 +562,76 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
     }
 
     case "START_GAME": {
-      return { ...state, phase: GamePhase.TeamPick };
+      return { ...state, phase: GamePhase.ModeSelect };
+    }
+
+    case "GO_TO_EXHIBITION": {
+      return { ...state, phase: GamePhase.ExhibitionCarousel };
+    }
+
+    case "GO_TO_PRE_MATCH": {
+      return { ...state, phase: GamePhase.PreMatch, sidebarTab: SidebarTab.Tactics };
+    }
+
+    case "GO_TO_MAIN_MENU": {
+      return { ...initialState, phase: GamePhase.ModeSelect };
+    }
+
+    case "SET_STADIUM": {
+      return { ...state, stadium: action.payload.stadium, pitchType: action.payload.stadium.pitchType };
+    }
+
+    case "SELECT_OPENERS": {
+      const { strikerId, nonStrikerId } = action.payload;
+      const inningsKey = state.currentInnings === 1 ? "firstInnings" : "secondInnings";
+      const innings = state[inningsKey];
+      if (!innings) return state;
+
+      const makeEntry = (id: string): BatsmanInnings => ({
+        playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, dots: 0,
+        confidence: 50, isOut: false, isOnStrike: false, hasReached30: false, hasReached50: false,
+      });
+
+      return {
+        ...state,
+        [inningsKey]: {
+          ...innings,
+          battingOrder: [strikerId, nonStrikerId],
+          batsmen: [makeEntry(strikerId), makeEntry(nonStrikerId)],
+          currentBatsmanOnStrike: 0,
+          currentBatsmanNonStrike: 1,
+          nextBatsmanIndex: 2,
+        },
+        pendingBatsmanSelection: null,
+      };
+    }
+
+    case "SELECT_NEXT_BATSMAN": {
+      const { batsmanId } = action.payload;
+      const inningsKey = state.currentInnings === 1 ? "firstInnings" : "secondInnings";
+      const innings = state[inningsKey];
+      if (!innings) return state;
+
+      const makeEntry = (id: string): BatsmanInnings => ({
+        playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, dots: 0,
+        confidence: 50, isOut: false, isOnStrike: false, hasReached30: false, hasReached50: false,
+      });
+
+      const newBattingOrder = [...innings.battingOrder, batsmanId];
+      const newBatsmen = [...innings.batsmen, makeEntry(batsmanId)];
+      const newStrikeIdx = newBattingOrder.length - 1;
+
+      return {
+        ...state,
+        [inningsKey]: {
+          ...innings,
+          battingOrder: newBattingOrder,
+          batsmen: newBatsmen,
+          currentBatsmanOnStrike: newStrikeIdx,
+          nextBatsmanIndex: newStrikeIdx + 1,
+        },
+        pendingBatsmanSelection: null,
+      };
     }
 
     case "RESET_GAME": {

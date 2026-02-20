@@ -56,14 +56,17 @@ export enum DismissalType {
 }
 
 export enum GamePhase {
-  Start = "start",
-  TeamPick = "team-pick",
-  PreMatch = "pre-match",
-  Toss = "toss",
-  FirstInnings = "first-innings",
-  InningsSummary = "innings-summary",
-  SecondInnings = "second-innings",
-  FinalScorecard = "final-scorecard",
+  Start              = "start",
+  ModeSelect         = "mode-select",
+  ExhibitionCarousel = "exhibition-carousel",
+  MatchSetup         = "match-setup",
+  TeamPick           = "team-pick",      // kept for backwards-compat, unused
+  PreMatch           = "pre-match",
+  Toss               = "toss",
+  FirstInnings       = "first-innings",
+  InningsSummary     = "innings-summary",
+  SecondInnings      = "second-innings",
+  FinalScorecard     = "final-scorecard",
 }
 
 export enum SidebarTab {

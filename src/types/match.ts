@@ -10,6 +10,7 @@ import {
   SidebarTab,
 } from "./enums";
 import { Team } from "./player";
+import { Stadium } from "../data/stadiums";
 
 export interface BallEvent {
   ballNumber: number;
@@ -119,4 +120,10 @@ export interface MatchState {
 
   // Gate: user must click "Select Starting XI" on Match screen before Tactics is usable
   tacticsUnlocked: boolean;
+
+  // On-the-fly batting selection
+  pendingBatsmanSelection: "openers" | "next" | null;
+
+  // Selected stadium
+  stadium: Stadium | null;
 }

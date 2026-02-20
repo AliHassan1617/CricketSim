@@ -357,43 +357,63 @@ function getAIBowlingLine(
 }
 
 // ─── Vertical aggression slider ───────────────────────────────────────────────
-// W=32px wide container, H=height prop tall container.
+// W=42px wide container, H=height prop tall container.
 // Native range rotated -90° sits invisible on top for interaction.
 function VerticalAggSlider({
   value, onChange, disabled, height = 140,
 }: { value: number; onChange: (v: number) => void; disabled?: boolean; height?: number }) {
-  const W   = 32;
+  const W   = 42;
   const H   = height;
   const pct = ((value - 4) / 8) * 100;
-  const col = pct < 37 ? "#3b82f6" : pct < 63 ? "#22c55e" : "#ef4444";
+  const col       = pct < 37 ? "#3b82f6" : pct < 63 ? "#22c55e" : "#ef4444";
+  const zoneLabel = pct < 37 ? "CAREFUL" : pct < 63 ? "BALANCED" : "ATTACK";
   return (
-    <div className="flex flex-col items-center gap-1 shrink-0 select-none">
-      <span className="text-[9px] font-bold text-red-400 uppercase tracking-wide">Agg</span>
+    <div className="flex flex-col items-center gap-0.5 shrink-0 select-none">
+      {/* Top: aggressive end */}
+      <span className="text-[8px] font-black text-red-400 uppercase tracking-wide">AGG ▲</span>
       <div className="relative" style={{ width: W, height: H }}>
-        {/* track bg */}
-        <div className="absolute rounded-full bg-gray-700"
-             style={{ left: 12, right: 12, top: 0, bottom: 0 }} />
-        {/* fill */}
-        <div className="absolute rounded-full transition-all duration-75"
-             style={{ left: 12, right: 12, bottom: 0, height: `${pct}%`, backgroundColor: col }} />
-        {/* thumb */}
-        <div className="absolute rounded-full border-2 shadow transition-all duration-75"
-             style={{ left: 4, right: 4, height: 13,
-                      bottom: `calc(${pct}% - 6px)`,
-                      borderColor: "rgba(255,255,255,.6)", backgroundColor: col }} />
-        {/* invisible native range */}
-        <input type="range" min={4} max={12} step={0.5} value={value}
-               disabled={disabled}
-               onChange={(e) => onChange(Number(e.target.value))}
-               style={{ position:"absolute", width: H, height: W,
-                        left: (W-H)/2, top: (H-W)/2,
-                        transform:"rotate(-90deg)", opacity: 0,
-                        cursor: disabled ? "not-allowed" : "pointer",
-                        margin: 0, padding: 0 }} />
+        {/* Gradient track bg */}
+        <div
+          className="absolute rounded-full"
+          style={{
+            left: 17, right: 17, top: 0, bottom: 0,
+            background: "linear-gradient(to top, #3b82f6 0%, #22c55e 48%, #ef4444 100%)",
+            opacity: 0.22,
+          }}
+        />
+        {/* Colored fill */}
+        <div
+          className="absolute rounded-full transition-all duration-75"
+          style={{ left: 17, right: 17, bottom: 0, height: `${pct}%`, backgroundColor: col }}
+        />
+        {/* Thumb */}
+        <div
+          className="absolute rounded-full border-2 shadow-lg transition-all duration-75"
+          style={{
+            left: 7, right: 7, height: 16,
+            bottom: `calc(${pct}% - 8px)`,
+            borderColor: "rgba(255,255,255,.7)", backgroundColor: col,
+          }}
+        />
+        {/* Invisible native range for interaction */}
+        <input
+          type="range" min={4} max={12} step={0.5} value={value}
+          disabled={disabled}
+          onChange={(e) => onChange(Number(e.target.value))}
+          style={{
+            position: "absolute", width: H, height: W,
+            left: (W - H) / 2, top: (H - W) / 2,
+            transform: "rotate(-90deg)", opacity: 0,
+            cursor: disabled ? "not-allowed" : "pointer",
+            margin: 0, padding: 0,
+          }}
+        />
       </div>
-      <span className="text-[8px] text-gray-500">Aggression</span>
-      <span className="text-[10px] font-bold tabular-nums" style={{ color: col }}>
-        {value.toFixed(1)}
+      {/* Bottom: defensive end */}
+      <span className="text-[8px] font-black text-blue-400 uppercase tracking-wide">▼ DEF</span>
+      {/* Current zone label */}
+      <span className="text-[9px] font-bold mt-0.5" style={{ color: col }}>
+        {zoneLabel}
       </span>
     </div>
   );
@@ -414,9 +434,11 @@ export function MatchScreen() {
   const [mobileTab, setMobileTab]   = useState<"score"|"controls">("controls");
   const [overSummary, setOverSummary] = useState<{ over: number; runs: number; wickets: number; bowler: string } | null>(null);
   const [milestone, setMilestone]   = useState<string | null>(null);
-  const [isPaused, setIsPaused]           = useState(false);
-  const [pauseView, setPauseView]         = useState<"menu"|"scorecard"|"worm">("menu");
-  const [simOverTarget, setSimOverTarget] = useState<number | null>(null);
+  const [isPaused, setIsPaused]                   = useState(false);
+  const [pauseView, setPauseView]                 = useState<"menu"|"scorecard"|"worm">("menu");
+  const [simOverTarget, setSimOverTarget]         = useState<number | null>(null);
+  const [openerStrikerId, setOpenerStrikerId]     = useState<string | null>(null);
+  const [openerNonStrikerId, setOpenerNonStrikerId] = useState<string | null>(null);
   const prevOverRef    = useRef(0);
   const milestoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -515,6 +537,7 @@ export function MatchScreen() {
   // Simulate loop — fires handleNextBall as fast as React can process when active
   useEffect(() => {
     if (!state.isSimulating) return;
+    if (state.pendingBatsmanSelection) return;
     const inns = getActiveInnings(state);
     if (!inns || inns.isComplete || state.needsBowlerChange) return;
     if (!getCurrentBatsmanOnStrike(inns) || !getCurrentBowler(inns)) return;
@@ -999,35 +1022,44 @@ export function MatchScreen() {
                   onSelect={(l,len) => { setBowlLine(l); setBowlLength(len); }}
                   disabled={!canPlay} />
                 <div>
-                  <p className="text-[9px] text-gray-600 uppercase tracking-wider mb-1">Field</p>
+                  <p className="text-[9px] text-gray-600 uppercase tracking-wider mb-1.5">Field Setting</p>
                   {(() => {
                     const ppOvs = innings.matchOvers === 5 ? 1 : innings.matchOvers === 20 ? 6 : 2;
                     const isInPP = innings.totalOvers < ppOvs;
                     return (
                       <>
                         {isInPP && (
-                          <p className="text-[8px] text-yellow-600 mb-1">Powerplay — Defensive locked</p>
+                          <p className="text-[8px] text-yellow-600 mb-1.5">⚡ Powerplay — Defensive locked</p>
                         )}
-                        <div className="flex gap-1">
+                        <div className="grid grid-cols-3 gap-1.5">
                           {([
-                            { v: FieldType.Attacking, label:"Attack" },
-                            { v: FieldType.Balanced,  label:"Balanced" },
-                            { v: FieldType.Defensive, label:"Defend" },
+                            { v: FieldType.Attacking, label: "Attack",   sub: "Close field", color: "#ef4444", bg: "rgba(239,68,68,0.12)" },
+                            { v: FieldType.Balanced,  label: "Balanced", sub: "Standard",    color: "#9ca3af", bg: "rgba(156,163,175,0.10)" },
+                            { v: FieldType.Defensive, label: "Defend",   sub: "Boundary",    color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
                           ] as const).map(opt => {
                             const ppLocked = isInPP && opt.v === FieldType.Defensive;
                             const isDisabled = !canPlay || ppLocked;
+                            const isActive = field === opt.v;
                             return (
-                              <button key={opt.v} onClick={() => !ppLocked && setField(opt.v)} disabled={isDisabled}
-                                className={`flex-1 py-1 text-[10px] rounded border transition-all ${
+                              <button
+                                key={opt.v}
+                                onClick={() => !ppLocked && setField(opt.v)}
+                                disabled={isDisabled}
+                                className={`flex flex-col items-center py-2.5 px-1 rounded-xl border-2 transition-all ${
                                   isDisabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
-                                } ${
-                                  field === opt.v
-                                    ? opt.v === FieldType.Attacking ? "bg-red-700/50 border-red-500 text-red-200"
-                                    : opt.v === FieldType.Balanced  ? "bg-gray-700 border-gray-400 text-white"
-                                                                    : "bg-blue-800/50 border-blue-500 text-blue-200"
-                                    : "bg-gray-800 border-gray-700 text-gray-500"
-                                }`}>
-                                {opt.label}
+                                }`}
+                                style={{
+                                  borderColor: isActive ? opt.color : "rgba(255,255,255,0.08)",
+                                  background:  isActive ? opt.bg   : "rgba(255,255,255,0.03)",
+                                }}
+                              >
+                                <span
+                                  className="text-[11px] font-bold leading-tight"
+                                  style={{ color: isActive ? opt.color : "#6b7280" }}
+                                >
+                                  {opt.label}
+                                </span>
+                                <span className="text-[8px] text-gray-600 mt-0.5">{opt.sub}</span>
                               </button>
                             );
                           })}
@@ -1054,18 +1086,42 @@ export function MatchScreen() {
                 <span className="text-gray-500 text-xs ml-1">({onStrike?.balls ?? 0})</span>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0 mb-1.5 text-[9px]">
-              {onStrike && <span className="text-gray-500">{batsmanStatus(onStrike.balls)}</span>}
+            <div className="flex items-center gap-2 shrink-0 mb-1.5">
+              {/* Role badge */}
+              {strikerP && (
+                <span
+                  className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded border shrink-0"
+                  style={{
+                    color: strikerP.role === "bowler" ? "#f87171" : "#34d399",
+                    borderColor: strikerP.role === "bowler" ? "rgba(248,113,113,0.3)" : "rgba(52,211,153,0.3)",
+                    background: strikerP.role === "bowler" ? "rgba(248,113,113,0.08)" : "rgba(52,211,153,0.08)",
+                  }}
+                >
+                  {strikerP.role === "batsman" ? "BAT"
+                   : strikerP.role === "wicket-keeper" ? "WK"
+                   : strikerP.role === "all-rounder" ? "AR" : "BWL"}
+                </span>
+              )}
+              {/* Form bar + HOT/OK/COLD label */}
               {onStrike && (
-                <>
-                  <div className="w-12 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                    <div className={`h-full ${confBar(onStrike.confidence)}`}
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  <div className="w-14 h-1.5 bg-gray-800 rounded-full overflow-hidden shrink-0">
+                    <div className={`h-full rounded-full ${confBar(onStrike.confidence)}`}
                          style={{ width: `${onStrike.confidence}%` }} />
                   </div>
+                  <span className={`text-[8px] font-black uppercase tracking-wide shrink-0 ${
+                    onStrike.confidence >= 70 ? "text-emerald-400"
+                    : onStrike.confidence >= 45 ? "text-yellow-400" : "text-red-400"
+                  }`}>
+                    {onStrike.confidence >= 70 ? "HOT" : onStrike.confidence >= 45 ? "OK" : "COLD"}
+                  </span>
+                  <span className="text-[9px] text-gray-600 shrink-0">{batsmanStatus(onStrike.balls)}</span>
                   {onStrike.balls > 0 && (
-                    <span className="text-gray-600">SR {Math.round((onStrike.runs / onStrike.balls) * 100)}</span>
+                    <span className="text-[9px] text-gray-500 ml-auto shrink-0">
+                      SR <span className="text-gray-300 font-semibold">{Math.round((onStrike.runs / onStrike.balls) * 100)}</span>
+                    </span>
                   )}
-                </>
+                </div>
               )}
             </div>
             {flash && (
@@ -1075,18 +1131,23 @@ export function MatchScreen() {
             )}
             <div className="flex items-center gap-3 flex-1 min-h-0 overflow-hidden">
               <div className="shrink-0">
-                <FieldDiagram fieldType={diagField} size={118} showLabel />
+                <FieldDiagram fieldType={diagField} size={148} showLabel />
               </div>
               {isBatting ? (
                 <>
                   <VerticalAggSlider value={sRpo} onChange={v => onStrike && setRpoFor(onStrike.playerId, v)}
                     disabled={!canPlay} height={113} />
                   <div className="flex flex-col items-center gap-1 shrink-0">
-                    <span className="text-[8px] text-gray-500 text-center leading-tight">Keep<br />Strike</span>
-                    <button onClick={() => setKeepStrike(!keepStrike)} disabled={!canPlay}
-                      className={`px-2 py-0.5 text-[9px] font-bold rounded border transition-all ${
-                        keepStrike ? "bg-blue-700/50 border-blue-500 text-blue-200" : "bg-gray-800 border-gray-600 text-gray-500"
-                      } ${!canPlay ? "opacity-40 cursor-not-allowed" : ""}`}>
+                    <span className="text-[8px] text-gray-500 text-center leading-tight uppercase tracking-wide">Keep<br />Strike</span>
+                    <button
+                      onClick={() => setKeepStrike(!keepStrike)}
+                      disabled={!canPlay}
+                      className={`px-3 py-2 text-[10px] font-black rounded-lg border-2 transition-all ${
+                        keepStrike
+                          ? "bg-blue-700/40 border-blue-500 text-blue-200"
+                          : "bg-gray-800/60 border-gray-600/60 text-gray-500"
+                      } ${!canPlay ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                    >
                       {keepStrike ? "ON ✓" : "OFF"}
                     </button>
                   </div>
@@ -1129,18 +1190,70 @@ export function MatchScreen() {
                 <span className="text-gray-600 text-xs ml-1">({nonStrike?.balls ?? 0})</span>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0 mb-1.5 text-[9px]">
-              {nonStrike && <span className="text-gray-500">{batsmanStatus(nonStrike.balls)}</span>}
-              {nonStrike && nonStrike.balls > 0 && (
-                <span className="text-gray-600">SR {Math.round((nonStrike.runs / nonStrike.balls) * 100)}</span>
+            <div className="flex items-center gap-2 shrink-0 mb-2">
+              {/* Role badge */}
+              {nonStrikerP && (
+                <span
+                  className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded border shrink-0"
+                  style={{
+                    color: nonStrikerP.role === "bowler" ? "#f87171" : "#9ca3af",
+                    borderColor: "rgba(156,163,175,0.2)",
+                    background: "rgba(156,163,175,0.06)",
+                  }}
+                >
+                  {nonStrikerP.role === "batsman" ? "BAT"
+                   : nonStrikerP.role === "wicket-keeper" ? "WK"
+                   : nonStrikerP.role === "all-rounder" ? "AR" : "BWL"}
+                </span>
               )}
-              {nonStrikerP && <span className="text-gray-700 truncate">{nonStrikerP.role}</span>}
+              <span className="text-[9px] text-gray-600 shrink-0">
+                {nonStrike ? batsmanStatus(nonStrike.balls) : ""}
+              </span>
+              {nonStrike && nonStrike.balls > 0 && (
+                <span className="text-[9px] text-gray-500 ml-auto shrink-0">
+                  SR <span className="text-gray-300 font-semibold">{Math.round((nonStrike.runs / nonStrike.balls) * 100)}</span>
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-3 flex-1 min-h-0 overflow-hidden">
-              <FieldDiagram fieldType={diagField} size={108} showLabel />
+            {/* Body: batting stats + aggression slider */}
+            <div className="flex items-start gap-3 flex-1 min-h-0 overflow-hidden">
+              {/* Mini batting stat bars replacing the duplicate field diagram */}
+              {nonStrikerP && (
+                <div className="flex-1 space-y-1.5 py-1">
+                  {[
+                    { label: "Technique", value: Math.round((nonStrikerP.batting.techniqueVsPace + nonStrikerP.batting.techniqueVsSpin) / 2), color: "#3b82f6" },
+                    { label: "Power",     value: nonStrikerP.batting.power,       color: "#f59e0b" },
+                    { label: "Tempermt", value: nonStrikerP.batting.temperament, color: "#a78bfa" },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="flex items-center gap-1.5">
+                      <span className="text-[8px] text-gray-600 w-12 shrink-0">{label}</span>
+                      <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${value}%`, backgroundColor: color }} />
+                      </div>
+                      <span className="text-[8px] tabular-nums font-semibold w-5 text-right shrink-0" style={{ color }}>{value}</span>
+                    </div>
+                  ))}
+                  {/* Non-striker form */}
+                  {nonStrike && (
+                    <div className="flex items-center gap-1.5 pt-1.5 mt-0.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                      <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${confBar(nonStrike.confidence)}`}
+                             style={{ width: `${nonStrike.confidence}%` }} />
+                      </div>
+                      <span className={`text-[8px] font-black uppercase shrink-0 ${
+                        nonStrike.confidence >= 70 ? "text-emerald-400"
+                        : nonStrike.confidence >= 45 ? "text-yellow-400" : "text-red-400"
+                      }`}>
+                        {nonStrike.confidence >= 70 ? "HOT" : nonStrike.confidence >= 45 ? "OK" : "COLD"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Aggression slider */}
               {isBatting && nonStrike && (
                 <VerticalAggSlider value={nsRpo} onChange={v => setRpoFor(nonStrike.playerId, v)}
-                  disabled={!canPlay} height={103} />
+                  disabled={!canPlay} height={110} />
               )}
             </div>
           </div>{/* end non-striker sub-card */}
@@ -1216,6 +1329,159 @@ export function MatchScreen() {
           onSelect={id => dispatch({ type:"CHANGE_BOWLER", payload:{ bowlerId: id } })}
         />
       )}
+
+      {/* ── Opener selection modal ── */}
+      {state.pendingBatsmanSelection === "openers" && isBatting && (
+        <div className="fixed inset-0 z-50 flex flex-col text-white"
+             style={{ background: "#09090b" }}>
+          <div className="shrink-0 px-4 py-5 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+            <h2 className="text-lg font-bold text-white text-center">Select Your Openers</h2>
+            <p className="text-xs text-gray-500 text-center mt-0.5">Tap a player to assign them</p>
+          </div>
+
+          {/* Slots */}
+          <div className="px-4 py-4 grid grid-cols-2 gap-3 shrink-0">
+            {[
+              { label: "Faces First Ball", id: openerStrikerId, clear: () => setOpenerStrikerId(null) },
+              { label: "Opening Partner",  id: openerNonStrikerId, clear: () => setOpenerNonStrikerId(null) },
+            ].map(({ label, id, clear }) => (
+              <div
+                key={label}
+                className="rounded-xl p-3 flex flex-col items-center gap-1 cursor-pointer transition-colors"
+                style={{
+                  background: id ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.04)",
+                  border: `1px solid ${id ? "rgba(16,185,129,0.4)" : "rgba(255,255,255,0.08)"}`,
+                  minHeight: 72,
+                }}
+                onClick={() => id && clear()}
+              >
+                <p className="text-[9px] uppercase tracking-widest text-gray-500">{label}</p>
+                {id ? (
+                  <>
+                    <p className="text-sm font-bold text-emerald-300">
+                      {allPlayers.find(p => p.id === id)?.shortName ?? id}
+                    </p>
+                    <p className="text-[9px] text-gray-500">tap to clear</p>
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-600 italic">not selected</p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Player list */}
+          <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
+            {state.selectedXI.map(pid => {
+              const p = allPlayers.find(pl => pl.id === pid);
+              if (!p) return null;
+              const isStrike    = openerStrikerId === pid;
+              const isNonStrike = openerNonStrikerId === pid;
+              const isTaken     = isStrike || isNonStrike;
+              return (
+                <button
+                  key={pid}
+                  disabled={isTaken}
+                  onClick={() => {
+                    if (!openerStrikerId)    { setOpenerStrikerId(pid); return; }
+                    if (!openerNonStrikerId) { setOpenerNonStrikerId(pid); return; }
+                  }}
+                  className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors text-left"
+                  style={{
+                    background: isTaken ? "rgba(16,185,129,0.1)" : "rgba(255,255,255,0.04)",
+                    border: `1px solid ${isTaken ? "rgba(16,185,129,0.35)" : "rgba(255,255,255,0.07)"}`,
+                    opacity: isTaken ? 0.6 : 1,
+                    cursor: isTaken ? "not-allowed" : "pointer",
+                  }}
+                >
+                  <span
+                    className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
+                    style={{
+                      background: p.role === "batsman" || p.role === "wicket-keeper"
+                        ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.2)",
+                      color: p.role === "batsman" || p.role === "wicket-keeper"
+                        ? "#4ade80" : "#fca5a5",
+                    }}
+                  >
+                    {p.role === "wicket-keeper" ? "WK" : p.role === "all-rounder" ? "AR"
+                      : p.role === "bowler" ? "BWL" : "BAT"}
+                  </span>
+                  <span className="text-sm font-medium text-white">{p.shortName}</span>
+                  {isStrike    && <span className="ml-auto text-[9px] text-emerald-400 font-bold">STRIKER</span>}
+                  {isNonStrike && <span className="ml-auto text-[9px] text-blue-400 font-bold">NON-STRIKER</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Start button */}
+          <div className="shrink-0 px-4 py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+            <button
+              disabled={!openerStrikerId || !openerNonStrikerId}
+              onClick={() => {
+                if (!openerStrikerId || !openerNonStrikerId) return;
+                dispatch({ type: "SELECT_OPENERS", payload: { strikerId: openerStrikerId, nonStrikerId: openerNonStrikerId } });
+                setOpenerStrikerId(null);
+                setOpenerNonStrikerId(null);
+              }}
+              className="w-full py-3.5 rounded-xl text-sm font-bold uppercase tracking-widest transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: "#f4f4f5", color: "#09090b" }}
+            >
+              Start Innings
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Next batsman modal ── */}
+      {state.pendingBatsmanSelection === "next" && isBatting && (() => {
+        const usedIds = new Set(innings.battingOrder);
+        const remaining = state.selectedXI.filter(id => !usedIds.has(id));
+        return (
+          <div className="fixed inset-0 z-50 flex flex-col text-white"
+               style={{ background: "#09090b" }}>
+            <div className="shrink-0 px-4 py-5 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+              <h2 className="text-lg font-bold text-white text-center">Wicket!</h2>
+              <p className="text-xs text-gray-500 text-center mt-0.5">Who comes in next?</p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+              {remaining.map(pid => {
+                const p = allPlayers.find(pl => pl.id === pid);
+                if (!p) return null;
+                return (
+                  <button
+                    key={pid}
+                    onClick={() => dispatch({ type: "SELECT_NEXT_BATSMAN", payload: { batsmanId: pid } })}
+                    className="w-full flex items-center gap-3 rounded-xl px-3 py-3 transition-colors text-left"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.07)",
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
+                  >
+                    <span
+                      className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
+                      style={{
+                        background: p.role === "batsman" || p.role === "wicket-keeper"
+                          ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.2)",
+                        color: p.role === "batsman" || p.role === "wicket-keeper"
+                          ? "#4ade80" : "#fca5a5",
+                      }}
+                    >
+                      {p.role === "wicket-keeper" ? "WK" : p.role === "all-rounder" ? "AR"
+                        : p.role === "bowler" ? "BWL" : "BAT"}
+                    </span>
+                    <span className="text-sm font-medium text-white">{p.shortName}</span>
+                    <span className="ml-auto text-gray-500 text-xs capitalize">{p.role}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ══ PAUSE OVERLAY ══ */}
       {isPaused && (

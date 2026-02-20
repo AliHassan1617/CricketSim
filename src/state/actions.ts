@@ -1,6 +1,7 @@
 import { BallEvent } from "../types/match";
 import { Team } from "../types/player";
 import { BattingIntent, FieldType, MatchFormat, PitchType, SidebarTab } from "../types/enums";
+import { Stadium } from "../data/stadiums";
 
 export type GameAction =
   | { type: "START_GAME" }
@@ -25,4 +26,10 @@ export type GameAction =
   | { type: "SET_SIMULATING"; payload: { value: boolean } }
   | { type: "SET_FORMAT"; payload: { format: MatchFormat } }
   | { type: "UNLOCK_TACTICS" }
-  | { type: "RESET_GAME" };
+  | { type: "RESET_GAME" }
+  | { type: "GO_TO_EXHIBITION" }
+  | { type: "GO_TO_MAIN_MENU" }
+  | { type: "GO_TO_PRE_MATCH" }
+  | { type: "SET_STADIUM"; payload: { stadium: Stadium } }
+  | { type: "SELECT_OPENERS"; payload: { strikerId: string; nonStrikerId: string } }
+  | { type: "SELECT_NEXT_BATSMAN"; payload: { batsmanId: string } };

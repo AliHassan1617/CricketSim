@@ -2,6 +2,9 @@ import { useGame } from "./state/gameContext";
 import { GamePhase, SidebarTab } from "./types/enums";
 import { Layout } from "./components/Layout";
 import { StartScreen } from "./screens/StartScreen";
+import { ModeSelectScreen } from "./screens/ModeSelectScreen";
+import { ExhibitionCarouselScreen } from "./screens/ExhibitionCarouselScreen";
+import { MatchSetupScreen } from "./screens/MatchSetupScreen";
 import { TeamPickScreen } from "./screens/TeamPickScreen";
 import { SquadScreen } from "./screens/SquadScreen";
 import { TacticsScreen } from "./screens/TacticsScreen";
@@ -14,22 +17,12 @@ import { FinalScorecardScreen } from "./screens/FinalScorecardScreen";
 function AppContent() {
   const { state, dispatch } = useGame();
 
-  // Start screen — splash / landing
-  if (state.phase === GamePhase.Start) {
-    return <StartScreen />;
-  }
-
-  // Team pick screen — no sidebar
-  if (state.phase === GamePhase.TeamPick) {
-    return <TeamPickScreen />;
-  }
-
-  const isMatchPhase =
-    state.phase === GamePhase.Toss ||
-    state.phase === GamePhase.FirstInnings ||
-    state.phase === GamePhase.SecondInnings ||
-    state.phase === GamePhase.InningsSummary ||
-    state.phase === GamePhase.FinalScorecard;
+  // Full-screen phases — no sidebar
+  if (state.phase === GamePhase.Start)              return <StartScreen />;
+  if (state.phase === GamePhase.ModeSelect)         return <ModeSelectScreen />;
+  if (state.phase === GamePhase.ExhibitionCarousel) return <ExhibitionCarouselScreen />;
+  if (state.phase === GamePhase.MatchSetup)         return <MatchSetupScreen />;
+  if (state.phase === GamePhase.TeamPick)           return <TeamPickScreen />;
 
   const handleTabChange = (tab: SidebarTab) => {
     dispatch({ type: "SET_SIDEBAR_TAB", payload: { tab } });
@@ -49,7 +42,7 @@ function AppContent() {
         content = <PreMatchHubScreen />;
         break;
       default:
-        content = <SquadScreen />;
+        content = <TacticsScreen />;
     }
 
     return (

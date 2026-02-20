@@ -55,7 +55,7 @@ interface InningsScorecardProps {
 }
 
 function InningsScorecard({ innings, players, inningsNum }: InningsScorecardProps) {
-  const battedPlayers = innings.batsmen.filter((b) => b.balls > 0 || !b.isOut);
+  const battedPlayers = innings.batsmen.filter((b) => b.balls > 0);
   const totalBalls = innings.totalOvers * 6 + innings.ballsInCurrentOver;
   const runRate = totalBalls > 0 ? ((innings.totalRuns / totalBalls) * 6).toFixed(2) : "0.00";
   const extras = innings.extras.wides + innings.extras.noBalls;
@@ -176,7 +176,7 @@ function InningsScorecard({ innings, players, inningsNum }: InningsScorecardProp
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800/60">
-              {innings.bowlers.map((bowl) => {
+              {innings.bowlers.filter(b => b.overs > 0 || b.ballsInCurrentOver > 0).map((bowl) => {
                 const totalBowlerBalls = bowl.overs * 6 + bowl.ballsInCurrentOver;
                 const isBestBowler = bowl.wickets === Math.max(...innings.bowlers.map(b => b.wickets)) && bowl.wickets > 0;
                 return (
@@ -471,7 +471,7 @@ export function FinalScorecardScreen() {
         {/* New Game button */}
         <div className="max-w-2xl mx-auto px-4 pb-8 text-center">
           <button
-            onClick={() => dispatch({ type: "RESET_GAME" })}
+            onClick={() => dispatch({ type: "GO_TO_MAIN_MENU" })}
             className="px-10 py-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 rounded-xl text-base font-bold transition-colors shadow-lg shadow-emerald-900/40"
           >
             Play Again
