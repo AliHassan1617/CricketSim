@@ -768,6 +768,31 @@ export function MatchScreen() {
     return unsub;
   }, [isHost, mp, runBall, state, isBatting, dispatch]);
 
+  // ── Multiplayer: 6s auto-submit if guest doesn't respond ───────────────
+  useEffect(() => {
+    if (!isHost || !mpWaiting) return;
+    const t = setTimeout(() => {
+      const hi = pendingHostInput.current;
+      if (!hi) return;
+      pendingHostInput.current = null;
+      setMpWaiting(false);
+      const freshInnings  = getActiveInnings(state);
+      const freshIsBatting = freshInnings?.isUserBatting ?? isBatting;
+      if (freshInnings) {
+        // Use balanced defaults for the guest who didn't respond in time
+        runBall(
+          hi.intent ?? BattingIntent.Balanced,
+          hi.line,
+          freshIsBatting ? BattingIntent.Balanced : undefined,
+          freshIsBatting ? undefined : BowlerLine.OnStumps,
+          freshIsBatting,
+          freshInnings,
+        );
+      }
+    }, 6000);
+    return () => clearTimeout(t);
+  }, [mpWaiting, isHost]);
+
   // ── Multiplayer: send snapshot after each ball ──────────────────────────
   useEffect(() => {
     if (!isHost || !innings) return;
@@ -793,6 +818,53 @@ export function MatchScreen() {
           : `${state.userTeam?.name ?? "Host"} won!`)
       : undefined;
 
+    // Last ball info for celebrations + current-over ball tracker
+    const lastEv = innings.allEvents[innings.allEvents.length - 1];
+    const lastOutcome = lastEv
+      ? (lastEv.outcome === BallOutcome.Wicket ? "W"
+         : lastEv.outcome === BallOutcome.Six  ? "6"
+         : lastEv.outcome === BallOutcome.Four ? "4"
+         : lastEv.outcome === BallOutcome.Dot  ? "." : String(lastEv.runsScored))
+      : null;
+    const lastBatsmanName = lastEv ? (allP.find(p => p.id === lastEv.batsmanId)?.shortName ?? null) : null;
+    const lastBowlerName  = lastEv ? (allP.find(p => p.id === lastEv.bowlerId)?.shortName ?? null) : null;
+
+    const currentOverBalls = innings.currentOverEvents.map(ev => ({
+      outcome: ev.outcome === BallOutcome.Wicket ? "W"
+             : ev.outcome === BallOutcome.Six    ? "6"
+             : ev.outcome === BallOutcome.Four   ? "4"
+             : ev.outcome === BallOutcome.Dot    ? "." : String(ev.runsScored),
+      runs: ev.runsScored,
+    }));
+
+    // Detect over-just-completed (when ballsInCurrentOver resets to 0 after an over)
+    const prevOver = prevBallCount.current > 0
+      ? Math.floor((prevBallCount.current - 1) / 6) : -1;
+    const overJustEnded = innings.ballsInCurrentOver === 0 && innings.totalOvers > 0
+      && innings.totalOvers > prevOver;
+    let overJustCompleted = null;
+    if (overJustEnded) {
+      const completedOverIdx = innings.totalOvers - 1;
+      const overEvts = innings.allEvents.filter(e => e.overNumber === completedOverIdx);
+      const bowlerOfOver = overEvts[overEvts.length - 1]
+        ? (allP.find(p => p.id === overEvts[overEvts.length - 1].bowlerId)?.shortName ?? "?")
+        : "?";
+      overJustCompleted = {
+        over: innings.totalOvers,
+        runs: overEvts.reduce((s, e) => s + e.runsScored, 0),
+        wickets: overEvts.filter(e => e.outcome === BallOutcome.Wicket).length,
+        bowlerName: bowlerOfOver,
+        balls: overEvts.map(ev => ({
+          outcome: ev.outcome === BallOutcome.Wicket ? "W"
+                 : ev.outcome === BallOutcome.Six    ? "6"
+                 : ev.outcome === BallOutcome.Four   ? "4"
+                 : ev.outcome === BallOutcome.Dot    ? "." : String(ev.runsScored),
+          runs: ev.runsScored,
+          commentary: ev.commentary,
+        })),
+      };
+    }
+
     const snap: MatchSnapshot = {
       inningsNum:   state.currentInnings as 1 | 2,
       hostTeamName: state.userTeam?.name ?? "Host",
@@ -801,12 +873,18 @@ export function MatchScreen() {
       runs:         innings.totalRuns,
       wickets:      innings.totalWickets,
       totalBalls:   innings.allEvents.length,
+      totalOvers:   innings.totalOvers,
       overs:        formatOvers(innings.totalOvers * 6 + innings.ballsInCurrentOver),
       target:       innings.target,
       striker,
       nonStriker:   nStrike,
       bowler,
       recentCommentary: innings.allEvents.slice(-8).map(e => e.commentary),
+      currentOverBalls,
+      lastOutcome,
+      lastBatsmanName,
+      lastBowlerName,
+      overJustCompleted,
       guestXI:            state.opponentTeam?.players.slice(0, 11).map(p => p.id) ?? [],
       guestBattingOrder:  innings.isUserBatting ? [] : innings.battingOrder,
       needsGuestBowler:   innings.isUserBatting && state.needsBowlerChange,
