@@ -8,6 +8,7 @@ import { PitchSelector, mapToEngineLine } from "../components/PitchSelector";
 import type { BowlingLineChoice, BowlingLengthChoice } from "../components/PitchSelector";
 import { rpoToIntent } from "../components/RPOSlider";
 import { formatOvers, formatEconomy } from "../utils/format";
+import { playCheer, playGroan } from "../utils/sounds";
 
 const BALL_TIMER_SECS = 6;
 
@@ -186,10 +187,14 @@ export function GuestMatchScreen() {
         setHostReady(false);
         setSubmitted(false);
 
-        if (s.lastOutcome === "W")
+        const gb = !s.hostBatting; // true = guest is batting this ball
+        if (s.lastOutcome === "W") {
           showCelebration("wicket", s.lastBatsmanName ? `${s.lastBatsmanName} OUT!` : "WICKET!");
-        else if (s.lastOutcome === "6")
+          if (gb) playGroan(); else playCheer();
+        } else if (s.lastOutcome === "6") {
           showCelebration("six", s.lastBowlerName ? `off ${s.lastBowlerName}` : "SIX!");
+          if (gb) playCheer(); else playGroan();
+        }
 
         if (s.overJustCompleted && s.totalOvers !== prevTotalOvers.current) {
           prevTotalOvers.current = s.totalOvers;

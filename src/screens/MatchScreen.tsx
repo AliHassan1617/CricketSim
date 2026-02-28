@@ -21,6 +21,7 @@ import type { BowlingLineChoice, BowlingLengthChoice } from "../components/Pitch
 import { formatOvers, formatRunRate, formatEconomy } from "../utils/format";
 import { useMultiplayer } from "../multiplayer/MultiplayerContext";
 import { GuestMsg, MatchSnapshot } from "../multiplayer/types";
+import { playCheer, playGroan } from "../utils/sounds";
 
 // ─── Bat icon — shown next to the on-strike batsman ──────────────────────────
 function BatIcon({ className }: { className?: string }) {
@@ -554,18 +555,20 @@ export function MatchScreen() {
     if (!ev) return;
     const allP = getAllPlayers(state);
 
-    // ── Celebration flash (SIX / WICKET) ──────────────────────────────────
+    // ── Celebration flash (SIX / WICKET) + crowd sounds ──────────────────
     if (ev.outcome === BallOutcome.Six) {
       if (celebrationTimer.current) clearTimeout(celebrationTimer.current);
       const batsmanP = allP.find(pl => pl.id === ev.batsmanId);
       setCelebration({ type: "six", text: batsmanP?.shortName ?? "SIX!" });
       celebrationTimer.current = setTimeout(() => setCelebration(null), 1600);
+      if (isBatting) playCheer(); else playGroan();
     } else if (ev.outcome === BallOutcome.Wicket) {
       if (celebrationTimer.current) clearTimeout(celebrationTimer.current);
       const bowlerP = allP.find(pl => pl.id === ev.bowlerId);
       const batsmanP = allP.find(pl => pl.id === ev.batsmanId);
       setCelebration({ type: "wicket", text: batsmanP ? `${batsmanP.shortName} OUT!` : "WICKET!" });
       celebrationTimer.current = setTimeout(() => setCelebration(null), 1800);
+      if (isBatting) playGroan(); else playCheer();
     }
 
     const bat = innings.batsmen.find(b => b.playerId === ev.batsmanId);
@@ -2037,30 +2040,21 @@ export function MatchScreen() {
 
               <div className="h-px my-1" style={{ background: "rgba(255,255,255,0.08)" }} />
 
-              {/* Simulate controls */}
-              <button
-                onClick={() => {
-                  if (!canPlay) return;
-                  setSimOverTarget(innings.totalOvers + 1);
-                  dispatch({ type: "SET_SIMULATING", payload: { value: true } });
-                  setIsPaused(false);
-                }}
-                disabled={!canPlay}
-                className="w-full py-4 rounded-xl font-bold text-base transition-colors active:scale-[0.98] disabled:opacity-40"
-                style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#93c5fd" }}>
-                Simulate 1 Over
-              </button>
-              <button
-                onClick={() => {
-                  if (!canPlay) return;
-                  dispatch({ type: "SET_SIMULATING", payload: { value: true } });
-                  setIsPaused(false);
-                }}
-                disabled={!canPlay}
-                className="w-full py-4 rounded-xl font-bold text-base transition-colors active:scale-[0.98] disabled:opacity-40"
-                style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#93c5fd" }}>
-                Simulate Entire Innings
-              </button>
+              {/* Simulate 1 Over — exhibition only, not in multiplayer */}
+              {!isMultiplayer && (
+                <button
+                  onClick={() => {
+                    if (!canPlay) return;
+                    setSimOverTarget(innings.totalOvers + 1);
+                    dispatch({ type: "SET_SIMULATING", payload: { value: true } });
+                    setIsPaused(false);
+                  }}
+                  disabled={!canPlay}
+                  className="w-full py-4 rounded-xl font-bold text-base transition-colors active:scale-[0.98] disabled:opacity-40"
+                  style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#93c5fd" }}>
+                  Simulate 1 Over
+                </button>
+              )}
 
               <div className="h-px my-1" style={{ background: "rgba(255,255,255,0.06)" }} />
 
