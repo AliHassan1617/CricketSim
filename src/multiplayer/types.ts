@@ -54,7 +54,7 @@ export interface MatchSnapshot {
   bowler:     { name: string; overs: string; runs: number; wickets: number } | null;
 
   recentCommentary: string[];
-  currentOverBalls: { outcome: string; runs: number }[];  // current in-progress over
+  currentOverBalls: { outcome: string; runs: number; commentary?: string }[];  // current in-progress over
 
   // Last ball info for celebrations
   lastOutcome: string | null;     // "W", "6", "4", ".", "1", "2", "3"
@@ -71,6 +71,26 @@ export interface MatchSnapshot {
   guestEligibleBowlers: { id: string; name: string; overs: number; runs: number }[];
   needsGuestNextBatsman: boolean;
   guestRemainingBatsmen: { id: string; name: string }[];
+
+  // Full scorecard data for guest's rich display
+  allBatsmen: {
+    name: string; runs: number; balls: number; fours: number; sixes: number;
+    isOut: boolean; dismissalType?: string;
+    isOnStrike: boolean; isNonStrike: boolean;
+    confidence: number; role: string;
+  }[];
+  allBowlers: {
+    name: string; balls: number; runs: number; wickets: number;
+    isCurrent: boolean; confidence: number;
+  }[];
+  fieldType: string;            // "attacking" | "balanced" | "defensive"
+  extras: number;
+  matchOvers: number;
+  currentOverNumber: number;
+  partnership: { runs: number; balls: number } | null;
+  bowlerType: string;
+  bowlerMaxOvers: number;
+  bowlerConfidence: number;
 
   isMatchOver: boolean;
   matchResult?: string;

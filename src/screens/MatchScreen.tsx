@@ -835,6 +835,7 @@ export function MatchScreen() {
              : ev.outcome === BallOutcome.Four   ? "4"
              : ev.outcome === BallOutcome.Dot    ? "." : String(ev.runsScored),
       runs: ev.runsScored,
+      commentary: ev.commentary,
     }));
 
     // Detect over-just-completed (when ballsInCurrentOver resets to 0 after an over)
@@ -891,6 +892,44 @@ export function MatchScreen() {
       guestEligibleBowlers: innings.isUserBatting && state.needsBowlerChange ? availBowlers : [],
       needsGuestNextBatsman: false,
       guestRemainingBatsmen: [],
+      allBatsmen: innings.batsmen.map((bat, bi) => {
+        const p = allP.find(pl => pl.id === bat.playerId);
+        return {
+          name: p?.shortName ?? bat.playerId,
+          runs: bat.runs, balls: bat.balls, fours: bat.fours, sixes: bat.sixes,
+          isOut: bat.isOut, dismissalType: bat.dismissalType,
+          isOnStrike: bi === innings.currentBatsmanOnStrike && !innings.isComplete,
+          isNonStrike: bi === innings.currentBatsmanNonStrike && !innings.isComplete,
+          confidence: bat.confidence, role: p?.role ?? "batsman",
+        };
+      }),
+      allBowlers: innings.bowlers
+        .filter(b => b.overs > 0 || b.ballsInCurrentOver > 0)
+        .map(b => {
+          const p = allP.find(pl => pl.id === b.playerId);
+          return {
+            name: p?.shortName ?? b.playerId,
+            balls: b.overs * 6 + b.ballsInCurrentOver,
+            runs: b.runsConceded, wickets: b.wickets,
+            isCurrent: b.playerId === curBowler?.playerId,
+            confidence: b.confidence,
+          };
+        }),
+      fieldType: isBatting ? (aiField as string) : (field as string),
+      extras: innings.extras.wides + innings.extras.noBalls,
+      matchOvers: innings.matchOvers,
+      currentOverNumber: innings.totalOvers,
+      partnership: (() => {
+        let lastWicketIdx = -1;
+        for (let pi = innings.allEvents.length - 1; pi >= 0; pi--) {
+          if (innings.allEvents[pi].outcome === BallOutcome.Wicket) { lastWicketIdx = pi; break; }
+        }
+        const pEvts = innings.allEvents.slice(lastWicketIdx + 1);
+        return { runs: pEvts.reduce((s, e) => s + e.runsScored, 0), balls: pEvts.filter(e => !e.isExtra).length };
+      })(),
+      bowlerType: bowlerP?.bowling.bowlerType ?? "",
+      bowlerMaxOvers: curBowler?.maxOvers ?? 0,
+      bowlerConfidence: curBowler?.confidence ?? 70,
       isMatchOver:  isOver,
       matchResult,
     };
