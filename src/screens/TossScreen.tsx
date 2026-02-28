@@ -82,15 +82,28 @@ export function TossScreen() {
   };
 
   return (
-    <div
-      className="min-h-screen text-white flex items-center justify-center px-4"
-      style={{ background: "#09090b" }}
-    >
-      <div className="w-full max-w-sm mx-auto">
+    <div className="relative min-h-screen text-white flex items-center justify-center px-4 overflow-hidden">
+      <img
+        src="/vicky-adams-gywHscPZwMM-unsplash.jpg"
+        alt="" aria-hidden
+        className="absolute inset-0 w-full h-full object-cover object-center"
+        style={{ zIndex: 0 }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{ zIndex: 1, background: "linear-gradient(to bottom, rgba(5,10,5,0.80) 0%, rgba(5,10,5,0.95) 100%)" }}
+      />
+      <div className="relative w-full max-w-sm mx-auto" style={{ zIndex: 2 }}>
 
         {/* Header */}
         <div className="text-center mb-8" style={{ animation: "fadeInUp 0.4s ease" }}>
-          <p className="text-[10px] text-gray-600 uppercase tracking-widest mb-2">
+          <button
+            onClick={() => dispatch({ type: "GO_TO_PRE_MATCH" })}
+            className="text-xs text-gray-400 hover:text-white transition-colors mb-4 block mx-auto"
+          >
+            ‹ Back to Squads
+          </button>
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">
             {state.format} · {userTeamName} vs {oppTeamName}
           </p>
           <h1 className="text-4xl font-black text-white mb-3">The Toss</h1>

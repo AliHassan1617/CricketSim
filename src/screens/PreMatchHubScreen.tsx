@@ -1,5 +1,5 @@
 import { useGame } from "../state/gameContext";
-import { MatchFormat, SidebarTab } from "../types/enums";
+import { SidebarTab } from "../types/enums";
 
 export function PreMatchHubScreen() {
   const { state, dispatch } = useGame();
@@ -10,8 +10,8 @@ export function PreMatchHubScreen() {
   if (!user || !opponent) return null;
 
   const maxBowlerOvers =
-    state.format === MatchFormat.T5  ? 1 :
-    state.format === MatchFormat.T10 ? 2 : 4;
+    state.format === "T5"  ? 1 :
+    state.format === "T10" ? 2 : 4;
 
   const goToTactics = () => {
     dispatch({ type: "UNLOCK_TACTICS" });
@@ -57,36 +57,6 @@ export function PreMatchHubScreen() {
             </div>
             <p className="font-bold text-lg text-white">{opponent.name}</p>
           </div>
-        </div>
-      </div>
-
-      {/* ── Format picker ── */}
-      <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
-        <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1 text-center">
-          Select Match Format
-        </h2>
-        <p className="text-xs text-gray-600 text-center mb-4">
-          Choose how many overs each side will bat
-        </p>
-        <div className="flex gap-3 justify-center">
-          {([MatchFormat.T5, MatchFormat.T10, MatchFormat.T20] as const).map((fmt) => {
-            const overs = fmt === MatchFormat.T5 ? 5 : fmt === MatchFormat.T10 ? 10 : 20;
-            const maxOv = fmt === MatchFormat.T5 ? 1 : fmt === MatchFormat.T10 ? 2 : 4;
-            return (
-              <button
-                key={fmt}
-                onClick={() => dispatch({ type: "SET_FORMAT", payload: { format: fmt } })}
-                className={`flex flex-col items-center px-6 py-3 rounded-xl border transition-all ${
-                  state.format === fmt
-                    ? "bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-900/40"
-                    : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200"
-                }`}
-              >
-                <span className="text-lg font-black">{fmt}</span>
-                <span className="text-[10px] mt-0.5 opacity-70">{overs} overs · {maxOv}ov/bowler</span>
-              </button>
-            );
-          })}
         </div>
       </div>
 

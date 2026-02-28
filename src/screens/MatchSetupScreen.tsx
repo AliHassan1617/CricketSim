@@ -69,13 +69,26 @@ export function MatchSetupScreen() {
   };
 
   return (
-    <div
-      className="min-h-screen text-white flex flex-col items-center justify-center px-5 py-8"
-      style={{ background: "linear-gradient(160deg, #050e18 0%, #0a0a0a 50%, #050e18 100%)" }}
-    >
-      <div className="w-full max-w-sm space-y-8">
+    <div className="relative min-h-screen text-white flex flex-col items-center justify-center px-5 py-8 overflow-hidden">
+      <img
+        src="/chirayu-trivedi-iDTDvSDEVjw-unsplash.jpg"
+        alt="" aria-hidden
+        className="absolute inset-0 w-full h-full object-cover object-center"
+        style={{ zIndex: 0 }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{ zIndex: 1, background: "linear-gradient(to bottom, rgba(5,5,10,0.78) 0%, rgba(5,5,10,0.92) 100%)" }}
+      />
+      <div className="relative w-full max-w-sm space-y-8" style={{ zIndex: 2 }}>
         {/* Header */}
-        <div className="text-center">
+        <div className="relative text-center">
+          <button
+            onClick={() => dispatch({ type: "GO_TO_EXHIBITION" })}
+            className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+          >
+            ‹ Back
+          </button>
           <p className="text-[11px] text-gray-500 uppercase tracking-[0.4em] mb-1">Exhibition</p>
           <h2 className="text-2xl font-black text-white">Match Setup</h2>
           {state.userTeam && state.opponentTeam && (

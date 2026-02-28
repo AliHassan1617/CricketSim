@@ -67,6 +67,8 @@ export enum GamePhase {
   InningsSummary     = "innings-summary",
   SecondInnings      = "second-innings",
   FinalScorecard     = "final-scorecard",
+  MultiplayerLobby   = "multiplayer-lobby",
+  MultiplayerGuest   = "multiplayer-guest",
 }
 
 export enum SidebarTab {

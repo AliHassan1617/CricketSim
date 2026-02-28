@@ -13,6 +13,9 @@ import { TossScreen } from "./screens/TossScreen";
 import { MatchScreen } from "./screens/MatchScreen";
 import { InningsSummaryScreen } from "./screens/InningsSummaryScreen";
 import { FinalScorecardScreen } from "./screens/FinalScorecardScreen";
+import { MultiplayerLobbyScreen } from "./screens/MultiplayerLobbyScreen";
+import { GuestMatchScreen } from "./screens/GuestMatchScreen";
+import { MultiplayerProvider } from "./multiplayer/MultiplayerContext";
 
 function AppContent() {
   const { state, dispatch } = useGame();
@@ -23,6 +26,8 @@ function AppContent() {
   if (state.phase === GamePhase.ExhibitionCarousel) return <ExhibitionCarouselScreen />;
   if (state.phase === GamePhase.MatchSetup)         return <MatchSetupScreen />;
   if (state.phase === GamePhase.TeamPick)           return <TeamPickScreen />;
+  if (state.phase === GamePhase.MultiplayerLobby)   return <MultiplayerLobbyScreen />;
+  if (state.phase === GamePhase.MultiplayerGuest)   return <GuestMatchScreen />;
 
   const handleTabChange = (tab: SidebarTab) => {
     dispatch({ type: "SET_SIDEBAR_TAB", payload: { tab } });
@@ -90,5 +95,9 @@ function AppContent() {
 }
 
 export default function App() {
-  return <AppContent />;
+  return (
+    <MultiplayerProvider>
+      <AppContent />
+    </MultiplayerProvider>
+  );
 }

@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useGame } from "../state/gameContext";
 import { BallOutcome, BattingIntent, BowlerLine, BowlerType, FieldType } from "../types/enums";
-import { Innings } from "../types/match";
+import { BallEvent, Innings } from "../types/match";
 import { simulateBall } from "../engine/index";
 import {
   getActiveInnings,
@@ -19,6 +19,8 @@ import { PitchSelector, mapToEngineLine } from "../components/PitchSelector";
 import { rpoToIntent } from "../components/RPOSlider";
 import type { BowlingLineChoice, BowlingLengthChoice } from "../components/PitchSelector";
 import { formatOvers, formatRunRate, formatEconomy } from "../utils/format";
+import { useMultiplayer } from "../multiplayer/MultiplayerContext";
+import { GuestMsg, MatchSnapshot } from "../multiplayer/types";
 
 // ─── Bat icon — shown next to the on-strike batsman ──────────────────────────
 function BatIcon({ className }: { className?: string }) {
@@ -432,7 +434,13 @@ export function MatchScreen() {
   const [flash, setFlash]           = useState(false);
   const [tab, setTab]               = useState<"batting"|"bowling">("batting");
   const [mobileTab, setMobileTab]   = useState<"score"|"controls">("controls");
-  const [overSummary, setOverSummary] = useState<{ over: number; runs: number; wickets: number; bowler: string } | null>(null);
+  const [overSummary, setOverSummary] = useState<{
+    over: number; runs: number; wickets: number;
+    bowlerName: string; spellOvers: number; spellRuns: number; spellWickets: number;
+    events: BallEvent[];
+  } | null>(null);
+  const [celebration, setCelebration] = useState<{ type: "six" | "wicket"; text: string } | null>(null);
+  const celebrationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [milestone, setMilestone]   = useState<string | null>(null);
   const [isPaused, setIsPaused]                   = useState(false);
   const [pauseView, setPauseView]                 = useState<"menu"|"scorecard"|"worm">("menu");
@@ -445,13 +453,35 @@ export function MatchScreen() {
   const matchTime       = useRef(new Date().toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }));
   const innings         = getActiveInnings(state);
   const prevStriker     = useRef<string|null>(null);
+
+  // ── Multiplayer ────────────────────────────────────────────────────────────
+  const mp               = useMultiplayer();
+  const isHost           = mp.role === "host";
+  const isMultiplayer    = mp.role !== null;
+  const [mpWaiting, setMpWaiting] = useState(false);  // waiting for guest's ball input
+  const pendingHostInput = useRef<{ intent?: BattingIntent; line?: BowlerLine } | null>(null);
+  const prevBallCount    = useRef(0);
   const strikerId       = innings?.batsmen[innings?.currentBatsmanOnStrike]?.playerId ?? null;
   const handleNextBallRef = useRef<() => void>(() => {});
 
   // Auto-bowler: fires when a new over starts and an AI-controlled side needs a bowler.
   // Covers: user batting (AI always auto-picks) AND simulate mode (AI picks for user bowling too).
+  // In multiplayer host mode: when user is batting (guest is bowling), ask guest to pick instead.
   useEffect(() => {
     if (!innings || !state.needsBowlerChange) return;
+
+    // Multiplayer host: guest's team is bowling (isBatting=true) → ask guest to pick
+    if (isHost && innings.isUserBatting) {
+      const avail = getAvailableBowlers(innings);
+      const allP  = getAllPlayers(state);
+      const eligible = avail.map(b => {
+        const p = allP.find(pl => pl.id === b.playerId);
+        return { id: b.playerId, name: p?.shortName ?? b.playerId, overs: b.overs, runs: b.runsConceded };
+      });
+      mp.sendMessage({ t: "NEED_GUEST_BOWLER", eligible });
+      return;
+    }
+
     if (!innings.isUserBatting && !state.isSimulating) return;
     const avail = getAvailableBowlers(innings);
     if (avail.length === 0) return;
@@ -485,7 +515,7 @@ export function MatchScreen() {
     }
   }, [strikerId]);
 
-  // Over summary — detect when totalOvers increments and flash an over card
+  // Over summary — detect when totalOvers increments and show a closeable modal
   useEffect(() => {
     const curr = innings?.totalOvers ?? 0;
     const prev = prevOverRef.current;
@@ -496,20 +526,48 @@ export function MatchScreen() {
     const runsInOver = overEvts.reduce((s, e) => s + e.runsScored, 0);
     const wktsInOver = overEvts.filter(e => e.outcome === BallOutcome.Wicket).length;
     const lastEv = overEvts[overEvts.length - 1];
+    const bowlerSpell = innings?.bowlers.find(b => b.playerId === lastEv?.bowlerId);
     const bowlerName = lastEv
       ? (getAllPlayers(state).find(p => p.id === lastEv.bowlerId)?.shortName ?? "?")
       : "?";
-    setOverSummary({ over: curr, runs: runsInOver, wickets: wktsInOver, bowler: bowlerName });
-    const t = setTimeout(() => setOverSummary(null), 3500);
-    return () => clearTimeout(t);
+    setOverSummary({
+      over: curr,
+      runs: runsInOver,
+      wickets: wktsInOver,
+      bowlerName,
+      spellOvers: bowlerSpell?.overs ?? 0,
+      spellRuns: bowlerSpell?.runsConceded ?? runsInOver,
+      spellWickets: bowlerSpell?.wickets ?? wktsInOver,
+      events: overEvts,
+    });
+    // In simulate mode auto-dismiss so the game keeps flowing
+    if (state.isSimulating) {
+      const t = setTimeout(() => setOverSummary(null), 1800);
+      return () => clearTimeout(t);
+    }
   }, [innings?.totalOvers]);
 
-  // Milestones — detect 50/100 for batsmen, 3-for/5-for for bowlers on each ball
+  // Milestones — detect 50/100 for batsmen, 3-for/5-for for bowlers, + celebration flashes
   useEffect(() => {
     if (!innings) return;
     const ev = innings.allEvents[innings.allEvents.length - 1];
     if (!ev) return;
     const allP = getAllPlayers(state);
+
+    // ── Celebration flash (SIX / WICKET) ──────────────────────────────────
+    if (ev.outcome === BallOutcome.Six) {
+      if (celebrationTimer.current) clearTimeout(celebrationTimer.current);
+      const batsmanP = allP.find(pl => pl.id === ev.batsmanId);
+      setCelebration({ type: "six", text: batsmanP?.shortName ?? "SIX!" });
+      celebrationTimer.current = setTimeout(() => setCelebration(null), 1600);
+    } else if (ev.outcome === BallOutcome.Wicket) {
+      if (celebrationTimer.current) clearTimeout(celebrationTimer.current);
+      const bowlerP = allP.find(pl => pl.id === ev.bowlerId);
+      const batsmanP = allP.find(pl => pl.id === ev.batsmanId);
+      setCelebration({ type: "wicket", text: batsmanP ? `${batsmanP.shortName} OUT!` : "WICKET!" });
+      celebrationTimer.current = setTimeout(() => setCelebration(null), 1800);
+    }
+
     const bat = innings.batsmen.find(b => b.playerId === ev.batsmanId);
     if (bat && !bat.isOut) {
       const p = allP.find(pl => pl.id === bat.playerId);
@@ -538,6 +596,7 @@ export function MatchScreen() {
   useEffect(() => {
     if (!state.isSimulating) return;
     if (state.pendingBatsmanSelection) return;
+    if (overSummary) return; // pause while over-summary modal is open (auto-dismissed in sim mode)
     const inns = getActiveInnings(state);
     if (!inns || inns.isComplete || state.needsBowlerChange) return;
     if (!getCurrentBatsmanOnStrike(inns) || !getCurrentBowler(inns)) return;
@@ -575,45 +634,93 @@ export function MatchScreen() {
   const diagField = isBatting ? aiField : field;
   const extras    = innings.extras.wides + innings.extras.noBalls;
 
+  // Run ball with explicit inputs (used in both single-player and multiplayer)
+  const runBall = useCallback((
+    hostIntent: BattingIntent,
+    hostLine:   BowlerLine | undefined,
+    guestIntent: BattingIntent | undefined,
+    guestLine:   BowlerLine | undefined,
+    _isBatting: boolean,
+    _innings: Innings,
+  ) => {
+    if (!onStrike || !curBowler) return;
+    const bsStats = findPlayer(getAllPlayers(state), onStrike.playerId);
+    const blStats = findPlayer(getAllPlayers(state), curBowler.playerId);
+    if (!bsStats || !blStats) return;
+
+    let intent: BattingIntent;
+    let ef: FieldType;
+    let line: BowlerLine | undefined;
+
+    if (_isBatting) {
+      // Host batting: host sets intent, guest/AI sets line+field
+      intent = hostIntent;
+      ef = getAIField(
+        _innings.totalWickets, _innings.totalOvers,
+        onStrike.balls, onStrike.confidence,
+        _innings.matchOvers, _innings.target, _innings.totalRuns,
+      );
+      setAiField(ef);
+      line = isMultiplayer ? guestLine : getAIBowlingLine(
+        bsStats.batting.power, bsStats.batting.offsideSkill, bsStats.batting.legsideSkill,
+        blStats.bowling.bowlerType, _innings.totalOvers, _innings.matchOvers,
+      );
+    } else {
+      // Host bowling: host sets line, guest/AI sets intent
+      intent = isMultiplayer ? (guestIntent ?? BattingIntent.Balanced) : hostIntent;
+      ef = field;
+      line = hostLine;
+    }
+
+    let ev = simulateBall(onStrike, curBowler, bsStats, blStats,
+      state.pitchType, intent, ef, _innings, _innings.target, line);
+
+    if (keepStrike && _isBatting && _innings.ballsInCurrentOver === 5
+        && ev.outcome === BallOutcome.Dot && Math.random() < 0.45) {
+      ev = { ...ev, outcome: BallOutcome.Single, runsScored: 1 };
+    }
+    dispatch({ type: "PROCESS_BALL_RESULT", payload: { event: ev } });
+  }, [onStrike, curBowler, state, field, keepStrike, isMultiplayer, dispatch]);
+
   const handleNextBall = () => {
     if (!onStrike || !curBowler || !canPlay) return;
     const bsStats = findPlayer(allPlayers, onStrike.playerId);
     const blStats = findPlayer(allPlayers, curBowler.playerId);
     if (!bsStats || !blStats) return;
 
-    // In simulate mode AI controls everything; otherwise user controls their side
     const aiIntent = getAIIntent(
       innings.totalRuns, innings.totalWickets, innings.totalOvers,
       onStrike.balls, bsStats.batting.power, onStrike.confidence,
-      innings.matchOvers,
-      innings.target,
+      innings.matchOvers, innings.target,
     );
     const aiLine = getAIBowlingLine(
       bsStats.batting.power, bsStats.batting.offsideSkill, bsStats.batting.legsideSkill,
       blStats.bowling.bowlerType, innings.totalOvers, innings.matchOvers,
     );
 
-    let intent = !isBatting || state.isSimulating ? aiIntent : rpoToIntent(sRpo);
-    let ef     = field;
-    let line: BowlerLine | undefined = undefined;
-
-    if (isBatting) {
-      // AI is bowling — AI picks field and line
-      ef = getAIField(
-        innings.totalWickets, innings.totalOvers,
-        onStrike.balls, onStrike.confidence,
-        innings.matchOvers,
-        innings.target, innings.totalRuns,
-      );
-      setAiField(ef);
-      line = aiLine;
-    } else {
-      // AI is batting — AI picks intent; user picks line (or AI picks in sim mode)
-      line = state.isSimulating ? aiLine : mapToEngineLine(bowlLine, bowlLength);
+    // ── Multiplayer host: submit input, wait for guest ────────────────────
+    if (isHost && !state.isSimulating) {
+      const myIntent = isBatting ? rpoToIntent(sRpo) : aiIntent;
+      const myLine   = isBatting ? undefined : mapToEngineLine(bowlLine, bowlLength);
+      pendingHostInput.current = { intent: myIntent, line: myLine };
+      mp.sendMessage({ t: "HOST_BALL_READY" });
+      setMpWaiting(true);
+      return;  // wait for GUEST_BALL_INPUT before running
     }
 
+    // ── Single-player / simulate mode ────────────────────────────────────
+    const intent = !isBatting || state.isSimulating ? aiIntent : rpoToIntent(sRpo);
+    const chosenLine = isBatting ? aiLine : (state.isSimulating ? aiLine : mapToEngineLine(bowlLine, bowlLength));
+    const ef = isBatting
+      ? (() => {
+          const f = getAIField(innings.totalWickets, innings.totalOvers, onStrike.balls,
+            onStrike.confidence, innings.matchOvers, innings.target, innings.totalRuns);
+          setAiField(f); return f;
+        })()
+      : field;
+
     let ev = simulateBall(onStrike, curBowler, bsStats, blStats,
-      state.pitchType, intent, ef, innings, innings.target, line);
+      state.pitchType, intent, ef, innings, innings.target, chosenLine);
 
     if (keepStrike && isBatting && innings.ballsInCurrentOver === 5
         && ev.outcome === BallOutcome.Dot && Math.random() < 0.45) {
@@ -625,6 +732,115 @@ export function MatchScreen() {
   // Keep ref pointing at latest handleNextBall (avoids stale closure in simulate loop)
   handleNextBallRef.current = handleNextBall;
 
+  // ── Multiplayer: listen for guest messages ──────────────────────────────
+  useEffect(() => {
+    if (!isHost) return;
+    const unsub = mp.onMessage((raw) => {
+      const msg = raw as GuestMsg;
+
+      if (msg.t === "GUEST_BALL_INPUT" && pendingHostInput.current) {
+        const hi = pendingHostInput.current;
+        pendingHostInput.current = null;
+        setMpWaiting(false);
+        // Pull fresh innings/flags via ref
+        const freshInnings = getActiveInnings(state);
+        const freshIsBatting = freshInnings?.isUserBatting ?? isBatting;
+        if (freshInnings) {
+          runBall(
+            hi.intent ?? BattingIntent.Balanced,
+            hi.line,
+            msg.intent,
+            msg.line,
+            freshIsBatting,
+            freshInnings,
+          );
+        }
+      }
+
+      if (msg.t === "GUEST_BOWLER") {
+        dispatch({ type: "CHANGE_BOWLER", payload: { bowlerId: msg.bowlerId } });
+      }
+
+      if (msg.t === "GUEST_NEXT_BATSMAN") {
+        dispatch({ type: "SELECT_NEXT_BATSMAN", payload: { batsmanId: msg.batsmanId } });
+      }
+    });
+    return unsub;
+  }, [isHost, mp, runBall, state, isBatting, dispatch]);
+
+  // ── Multiplayer: send snapshot after each ball ──────────────────────────
+  useEffect(() => {
+    if (!isHost || !innings) return;
+    const ballCount = innings.allEvents.length;
+    if (ballCount <= prevBallCount.current) return;
+    prevBallCount.current = ballCount;
+
+    // Build snapshot
+    const allP    = getAllPlayers(state);
+    const striker = onStrike  ? (() => { const p = findPlayer(allP, onStrike.playerId);  return p ? { name: p.shortName, runs: onStrike.runs,  balls: onStrike.balls  } : null; })() : null;
+    const nStrike = nonStrike ? (() => { const p = findPlayer(allP, nonStrike.playerId); return p ? { name: p.shortName, runs: nonStrike.runs, balls: nonStrike.balls } : null; })() : null;
+    const bowler  = curBowler ? (() => { const p = findPlayer(allP, curBowler.playerId); return p ? { name: p.shortName, overs: formatOvers(curBowler.overs * 6 + curBowler.ballsInCurrentOver), runs: curBowler.runsConceded, wickets: curBowler.wickets } : null; })() : null;
+
+    const availBowlers = getAvailableBowlers(innings).map(b => {
+      const p = allP.find(pl => pl.id === b.playerId);
+      return { id: b.playerId, name: p?.shortName ?? b.playerId, overs: b.overs, runs: b.runsConceded };
+    });
+
+    const isOver = innings.isComplete || state.phase === "final-scorecard" || state.phase === "innings-summary";
+    const matchResult = innings.isComplete
+      ? (innings.target && innings.totalRuns >= innings.target
+          ? `${state.opponentTeam?.name ?? "Guest"} won!`
+          : `${state.userTeam?.name ?? "Host"} won!`)
+      : undefined;
+
+    const snap: MatchSnapshot = {
+      inningsNum:   state.currentInnings as 1 | 2,
+      hostTeamName: state.userTeam?.name ?? "Host",
+      guestTeamName: state.opponentTeam?.name ?? "Guest",
+      hostBatting:  innings.isUserBatting,
+      runs:         innings.totalRuns,
+      wickets:      innings.totalWickets,
+      totalBalls:   innings.allEvents.length,
+      overs:        formatOvers(innings.totalOvers * 6 + innings.ballsInCurrentOver),
+      target:       innings.target,
+      striker,
+      nonStriker:   nStrike,
+      bowler,
+      recentCommentary: innings.allEvents.slice(-8).map(e => e.commentary),
+      guestXI:            state.opponentTeam?.players.slice(0, 11).map(p => p.id) ?? [],
+      guestBattingOrder:  innings.isUserBatting ? [] : innings.battingOrder,
+      needsGuestBowler:   innings.isUserBatting && state.needsBowlerChange,
+      guestEligibleBowlers: innings.isUserBatting && state.needsBowlerChange ? availBowlers : [],
+      needsGuestNextBatsman: false,
+      guestRemainingBatsmen: [],
+      isMatchOver:  isOver,
+      matchResult,
+    };
+
+    if (isOver) {
+      mp.sendMessage({ t: "MATCH_OVER", snapshot: snap });
+    } else {
+      mp.sendMessage({ t: "BALL_RESULT", snapshot: snap });
+    }
+  }, [innings?.allEvents.length, isHost]);
+
+  // ── Multiplayer: send MATCH_CONFIG + TOSS on first innings mount ────────
+  useEffect(() => {
+    if (!isHost || state.currentInnings !== 1) return;
+    const opp = state.opponentTeam;
+    if (!opp) return;
+    const guestXI = opp.players.slice(0, 11).map(p => p.id);
+    mp.sendMessage({
+      t: "MATCH_CONFIG",
+      guestTeamId:  opp.id,
+      format:       state.format,
+      pitchType:    state.pitchType,
+      stadiumName:  state.stadium?.name ?? "Unknown Stadium",
+      guestXI,
+    });
+    mp.sendMessage({ t: "TOSS", hostBatsFirst: state.userBatsFirst });
+  }, []); // fires once on mount
+
   // last 6 events for the tracker (sliding window)
   const trackerEvents = innings.currentOverEvents.slice(-6);
 
@@ -633,22 +849,178 @@ export function MatchScreen() {
     <div className="flex flex-col h-full text-white overflow-hidden"
          style={{ background: "linear-gradient(135deg, #0a0f1e 0%, #0d1117 50%, #0a1628 100%)" }}>
 
-      {/* ── Over summary popup ── */}
+      {/* Multiplayer waiting overlay */}
+      {isHost && mpWaiting && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 60,
+            background: "rgba(5,14,24,0.85)",
+            backdropFilter: "blur(6px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <div
+            className="text-center px-8 py-6 rounded-2xl space-y-3"
+            style={{ background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.3)" }}
+          >
+            <span className="block w-3 h-3 rounded-full bg-indigo-400 animate-pulse mx-auto" />
+            <p className="text-indigo-300 font-semibold text-sm">
+              Waiting for opponent…
+            </p>
+            <p className="text-gray-500 text-xs">
+              {isBatting ? "Opponent is choosing their bowling line" : "Opponent is setting their batting intent"}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Multiplayer status bar */}
+      {isMultiplayer && (
+        <div
+          className="flex items-center gap-2 px-3 py-1 text-xs shrink-0"
+          style={{ background: "rgba(99,102,241,0.1)", borderBottom: "1px solid rgba(99,102,241,0.15)" }}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+          <span className="text-indigo-400 font-semibold">{isHost ? "HOST" : "GUEST"}</span>
+          <span className="text-gray-600 mx-1">·</span>
+          <span className="text-gray-500">vs {state.opponentTeam?.shortName}</span>
+          {mp.roomCode && <span className="ml-auto text-gray-600 font-mono">{mp.roomCode}</span>}
+        </div>
+      )}
+
+      {/* ── Celebration overlay (SIX / WICKET) ── */}
+      {celebration && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 70,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            pointerEvents: "none",
+            animation: "celebFade 1.6s ease forwards",
+          }}
+        >
+          {/* Coloured radial burst */}
+          <div style={{
+            position: "absolute", inset: 0,
+            background: celebration.type === "six"
+              ? "radial-gradient(ellipse at center, rgba(234,179,8,0.45) 0%, rgba(234,179,8,0.0) 65%)"
+              : "radial-gradient(ellipse at center, rgba(239,68,68,0.5) 0%, rgba(239,68,68,0.0) 65%)",
+          }} />
+          <div className="relative text-center px-10 py-8 rounded-3xl space-y-2" style={{
+            background: celebration.type === "six"
+              ? "rgba(30,25,0,0.75)"
+              : "rgba(30,0,0,0.75)",
+            border: celebration.type === "six"
+              ? "2px solid rgba(234,179,8,0.6)"
+              : "2px solid rgba(239,68,68,0.6)",
+            backdropFilter: "blur(8px)",
+            boxShadow: celebration.type === "six"
+              ? "0 0 60px rgba(234,179,8,0.35)"
+              : "0 0 60px rgba(239,68,68,0.35)",
+          }}>
+            <p className="text-5xl font-black tracking-tight" style={{
+              color: celebration.type === "six" ? "#facc15" : "#f87171",
+              textShadow: celebration.type === "six"
+                ? "0 0 30px rgba(234,179,8,0.8)"
+                : "0 0 30px rgba(239,68,68,0.8)",
+            }}>
+              {celebration.type === "six" ? "SIX!" : "WICKET!"}
+            </p>
+            <p className="text-sm font-semibold" style={{
+              color: celebration.type === "six" ? "#fde68a" : "#fca5a5",
+            }}>
+              {celebration.text}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Over summary modal ── */}
       {overSummary && (
         <div
           style={{
-            position: "fixed", top: 64, left: "50%", zIndex: 50,
-            transform: "translateX(-50%)",
-            animation: "slideDown 0.3s ease",
-            background: "rgba(10,25,15,0.95)",
-            backdropFilter: "blur(12px)",
-            border: "1px solid rgba(16,185,129,0.35)",
+            position: "fixed", inset: 0, zIndex: 60,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(0,0,0,0.6)",
+            backdropFilter: "blur(4px)",
           }}
-          className="px-5 py-2.5 rounded-xl shadow-2xl text-center pointer-events-none"
         >
-          <p className="text-[10px] text-emerald-500 uppercase tracking-wider mb-0.5">End of Over {overSummary.over}</p>
-          <p className="text-lg font-bold text-white">{overSummary.runs} runs · {overSummary.wickets} wkt{overSummary.wickets !== 1 ? "s" : ""}</p>
-          <p className="text-[11px] text-gray-400">{overSummary.bowler}</p>
+          <div
+            className="w-full max-w-sm mx-4 rounded-2xl overflow-hidden shadow-2xl"
+            style={{ background: "#0d1b12", border: "1px solid rgba(16,185,129,0.3)" }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3"
+                 style={{ background: "rgba(16,185,129,0.12)", borderBottom: "1px solid rgba(16,185,129,0.2)" }}>
+              <div>
+                <p className="text-[10px] text-emerald-500 uppercase tracking-widest font-bold">
+                  End of Over {overSummary.over}
+                </p>
+                <p className="text-base font-bold text-white mt-0.5">
+                  {overSummary.runs} runs · {overSummary.wickets} wkt{overSummary.wickets !== 1 ? "s" : ""}
+                </p>
+              </div>
+              <button
+                onClick={() => setOverSummary(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors text-lg font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Bowler info */}
+            <div className="px-5 py-2.5 flex items-center gap-3"
+                 style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-emerald-900 text-emerald-400 shrink-0">
+                {overSummary.bowlerName.charAt(0)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-white truncate">{overSummary.bowlerName}</p>
+                <p className="text-[11px] text-gray-500">
+                  {overSummary.spellOvers}-0-{overSummary.spellRuns}-{overSummary.spellWickets}
+                  &nbsp;·&nbsp;
+                  Econ {overSummary.spellOvers > 0
+                    ? (overSummary.spellRuns / overSummary.spellOvers).toFixed(1)
+                    : "—"}
+                </p>
+              </div>
+            </div>
+
+            {/* Ball-by-ball */}
+            <div className="px-5 py-3 space-y-1.5 max-h-52 overflow-y-auto">
+              {overSummary.events.map((ev, i) => (
+                <div key={i} className="flex items-start gap-2.5">
+                  {/* Ball badge */}
+                  <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    ev.outcome === BallOutcome.Wicket ? "bg-red-600 text-white"
+                    : ev.outcome === BallOutcome.Six   ? "bg-yellow-400 text-black"
+                    : ev.outcome === BallOutcome.Four  ? "bg-blue-600 text-white"
+                    : ev.outcome === BallOutcome.Dot   ? "bg-gray-700 text-gray-400"
+                    : "bg-emerald-700 text-white"
+                  }`}>
+                    {ev.outcome === BallOutcome.Wicket ? "W"
+                     : ev.outcome === BallOutcome.Six  ? "6"
+                     : ev.outcome === BallOutcome.Four ? "4"
+                     : ev.outcome === BallOutcome.Dot  ? "·"
+                     : String(ev.runsScored)}
+                  </span>
+                  <p className="text-[11px] text-gray-400 leading-tight pt-0.5 flex-1">{ev.commentary}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Continue button */}
+            <div className="px-5 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+              <button
+                onClick={() => setOverSummary(null)}
+                className="w-full py-2.5 rounded-xl text-sm font-bold uppercase tracking-wider transition-all active:scale-[0.97]"
+                style={{ background: "rgba(16,185,129,0.15)", color: "#34d399", border: "1px solid rgba(16,185,129,0.3)" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(16,185,129,0.25)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(16,185,129,0.15)"; }}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1571,6 +1943,16 @@ export function MatchScreen() {
                 className="w-full py-4 rounded-xl font-bold text-base transition-colors active:scale-[0.98] disabled:opacity-40"
                 style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#93c5fd" }}>
                 Simulate Entire Innings
+              </button>
+
+              <div className="h-px my-1" style={{ background: "rgba(255,255,255,0.06)" }} />
+
+              {/* Quit */}
+              <button
+                onClick={() => dispatch({ type: "GO_TO_MAIN_MENU" })}
+                className="w-full py-4 rounded-xl font-bold text-base transition-colors active:scale-[0.98]"
+                style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }}>
+                Quit to Menu
               </button>
             </div>
           )}

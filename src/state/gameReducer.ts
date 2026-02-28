@@ -577,6 +577,18 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
       return { ...initialState, phase: GamePhase.ModeSelect };
     }
 
+    case "GO_TO_START": {
+      return { ...initialState, phase: GamePhase.Start };
+    }
+
+    case "GO_TO_MULTIPLAYER": {
+      return { ...initialState, phase: GamePhase.MultiplayerLobby };
+    }
+
+    case "GO_TO_MULTIPLAYER_GUEST": {
+      return { ...state, phase: GamePhase.MultiplayerGuest };
+    }
+
     case "SET_STADIUM": {
       return { ...state, stadium: action.payload.stadium, pitchType: action.payload.stadium.pitchType };
     }

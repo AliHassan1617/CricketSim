@@ -143,13 +143,29 @@ export function ExhibitionCarouselScreen() {
   };
 
   return (
-    <div
-      className="min-h-screen text-white flex flex-col px-4 py-10"
-      style={{ background: "linear-gradient(160deg, #050e18 0%, #0a0a0a 50%, #050e18 100%)" }}
-    >
+    <div className="relative min-h-screen text-white flex flex-col px-4 py-10 overflow-hidden">
+      {/* BG image */}
+      <img
+        src="/aksh-yadav-bY4cqxp7vos-unsplash.jpg"
+        alt="" aria-hidden
+        className="absolute inset-0 w-full h-full object-cover object-center"
+        style={{ zIndex: 0 }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{ zIndex: 1, background: "linear-gradient(to bottom, rgba(5,14,24,0.82) 0%, rgba(5,14,24,0.90) 100%)" }}
+      />
+
+      <div className="relative flex flex-col flex-1" style={{ zIndex: 2 }}>
       {/* Header */}
       <div className="text-center mb-8">
-        <p className="text-[10px] text-gray-600 uppercase tracking-[0.4em] mb-1">Exhibition</p>
+        <button
+          onClick={() => dispatch({ type: "GO_TO_MAIN_MENU" })}
+          className="text-xs text-gray-400 hover:text-white transition-colors mb-4 block"
+        >
+          ‹ Back
+        </button>
+        <p className="text-[10px] text-gray-400 uppercase tracking-[0.4em] mb-1">Exhibition</p>
         <h2 className="text-3xl font-black text-white">Pick Teams</h2>
       </div>
 
@@ -208,6 +224,7 @@ export function ExhibitionCarouselScreen() {
         >
           Proceed →
         </button>
+      </div>
       </div>
     </div>
   );

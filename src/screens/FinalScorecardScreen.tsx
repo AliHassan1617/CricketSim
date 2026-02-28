@@ -378,7 +378,15 @@ export function FinalScorecardScreen() {
   const mvp = computeMVP(first, second, allPlayers);
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col">
+    <div className="relative min-h-screen text-white flex flex-col overflow-hidden" style={{ background: "#030a04" }}>
+      {/* BG image — subtle, only visible behind header */}
+      <img
+        src="/premium_photo-1679917489673-b952cee5857a.avif"
+        alt="" aria-hidden
+        className="absolute inset-0 w-full h-full object-cover object-top"
+        style={{ zIndex: 0, opacity: 0.18 }}
+      />
+      <div className="relative flex flex-col flex-1" style={{ zIndex: 1 }}>
       {/* Result header */}
       <ResultHeader first={first} second={second} />
 
@@ -477,6 +485,7 @@ export function FinalScorecardScreen() {
             Play Again
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

@@ -32,4 +32,7 @@ export type GameAction =
   | { type: "GO_TO_PRE_MATCH" }
   | { type: "SET_STADIUM"; payload: { stadium: Stadium } }
   | { type: "SELECT_OPENERS"; payload: { strikerId: string; nonStrikerId: string } }
-  | { type: "SELECT_NEXT_BATSMAN"; payload: { batsmanId: string } };
+  | { type: "SELECT_NEXT_BATSMAN"; payload: { batsmanId: string } }
+  | { type: "GO_TO_MULTIPLAYER" }
+  | { type: "GO_TO_MULTIPLAYER_GUEST" }
+  | { type: "GO_TO_START" };
