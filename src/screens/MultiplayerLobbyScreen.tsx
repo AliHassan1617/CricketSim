@@ -99,7 +99,7 @@ type Phase = "choose" | "hosting" | "joining" | "team-pick" | "squad-pick" | "wa
 // ─── Main component ───────────────────────────────────────────────────────────
 export function MultiplayerLobbyScreen() {
   const { dispatch } = useGame();
-  const { createRoom, joinRoom, roomCode, connected, onMessage, sendMessage, disconnect } = useMultiplayer();
+  const { createRoom, joinRoom, roomCode, connected, onMessage, sendMessage, disconnect, mpError } = useMultiplayer();
 
   const [phase, setPhase] = useState<Phase>("choose");
   const [joinCode, setCode] = useState("");
@@ -354,7 +354,16 @@ export function MultiplayerLobbyScreen() {
               </p>
               {phase === "hosting" && <p className="text-xs text-gray-600">Share this code with your opponent</p>}
             </div>
-            {connected
+            {mpError
+              ? <div className="space-y-3">
+                  <p className="text-red-400 text-sm text-center">{mpError}</p>
+                  <button onClick={handleBack}
+                          className="w-full py-3 rounded-xl text-sm font-bold"
+                          style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.6)" }}>
+                    ← Try Again
+                  </button>
+                </div>
+              : connected
               ? <div className="flex items-center justify-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-400" />
                   <p className="text-sm text-emerald-400 font-semibold">Connected! Picking teams…</p>

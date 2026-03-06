@@ -41,7 +41,7 @@ export function ModeSelectScreen() {
         }}
       />
 
-      {/* Branding — true vertical center */}
+      {/* Branding + cards — all centered together */}
       <div
         style={{
           position: "relative",
@@ -50,9 +50,15 @@ export function ModeSelectScreen() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
-          alignItems: "center",
-          textAlign: "center",
+          padding: "0 18px",
+          gap: 28,
           animation: "fadeInUp 0.45s ease both",
+        }}
+      >
+      {/* Branding */}
+      <div
+        style={{
+          textAlign: "center",
           pointerEvents: "none",
         }}
       >
@@ -91,17 +97,8 @@ export function ModeSelectScreen() {
         </div>
       </div>
 
-      {/* Cards — lifted from bottom */}
-      <div
-        style={{
-          position: "relative",
-          zIndex: 2,
-          padding: "0 18px 88px",
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-        }}
-      >
+      {/* Cards */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {/* ── Quick Match — hero card ─────────────────────────── */}
         <button
           onClick={() => dispatch({ type: "GO_TO_EXHIBITION" })}
@@ -235,6 +232,7 @@ export function ModeSelectScreen() {
         >
           v0.1 alpha
         </p>
+      </div>
       </div>
     </div>
   );

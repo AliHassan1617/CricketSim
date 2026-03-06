@@ -9,7 +9,8 @@ interface MPCtx {
   roomCode: string | null;
   connected: boolean;
   waitingForOpponent: boolean;
-  guestTeamId: string | null;        // set once guest sends their team choice
+  guestTeamId: string | null;
+  mpError: string | null;
   // Actions
   createRoom: () => void;
   joinRoom: (code: string) => void;
@@ -21,7 +22,7 @@ interface MPCtx {
 
 const Ctx = createContext<MPCtx>({
   role: null, roomCode: null, connected: false,
-  waitingForOpponent: false, guestTeamId: null,
+  waitingForOpponent: false, guestTeamId: null, mpError: null,
   createRoom: () => {}, joinRoom: () => {}, sendMessage: () => {},
   setWaiting: () => {}, onMessage: () => () => {}, disconnect: () => {},
 });
@@ -32,6 +33,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   const [connected, setConn]  = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [guestTeamId, setGuestTeamId] = useState<string | null>(null);
+  const [mpError, setMpError] = useState<string | null>(null);
 
   const peerRef = useRef<Peer | null>(null);
   const connRef = useRef<DataConnection | null>(null);
@@ -48,34 +50,55 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     connRef.current = conn;
     conn.on("data",  dispatch);
     conn.on("close", () => { setConn(false); connRef.current = null; });
-    conn.on("open",  () => setConn(true));
+    // The "open" event may already have fired by the time we attach the listener
+    // (especially on the host side). Check conn.open synchronously first.
+    if (conn.open) {
+      setConn(true);
+    } else {
+      conn.on("open", () => setConn(true));
+    }
   }, [dispatch]);
 
+  const ICE_CONFIG = {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+      { urls: "stun:stun.cloudflare.com:3478" },
+    ],
+  };
+
   const createRoom = useCallback(() => {
-    // Generate a short 6-char alphanumeric code as the peer ID
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const peer = new Peer(code);
+    // Generate a short 6-char alphanumeric code as the peer ID (lowercase for PeerJS)
+    const code = Math.random().toString(36).substring(2, 8).toLowerCase();
+    const peer = new Peer(code, { config: ICE_CONFIG });
     peerRef.current = peer;
     setRole("host");
-    setCode(code);
+    setCode(code.toUpperCase());
 
     peer.on("connection", (conn) => {
       wireConn(conn);
     });
-    peer.on("error", (e) => console.error("[MP host]", e));
+    peer.on("error", (e) => {
+      console.error("[MP host]", e);
+      setMpError("Connection failed. Check your internet and try again.");
+    });
   }, [wireConn]);
 
   const joinRoom = useCallback((code: string) => {
-    const peer = new Peer();
+    const peer = new Peer(undefined as unknown as string, { config: ICE_CONFIG });
     peerRef.current = peer;
     setRole("guest");
     setCode(code.toUpperCase());
+    setMpError(null);
 
     peer.on("open", () => {
-      const conn = peer.connect(code.toUpperCase());
+      const conn = peer.connect(code.toLowerCase());
       wireConn(conn);
     });
-    peer.on("error", (e) => console.error("[MP guest]", e));
+    peer.on("error", (e) => {
+      console.error("[MP guest]", e);
+      setMpError("Could not connect. Make sure the room code is correct.");
+    });
   }, [wireConn]);
 
   const sendMessage = useCallback((msg: MPMsg) => {
@@ -97,6 +120,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     setConn(false);
     setWaiting(false);
     setGuestTeamId(null);
+    setMpError(null);
   }, []);
 
   // Cleanup on unmount
@@ -104,7 +128,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
 
   return (
     <Ctx.Provider value={{
-      role, roomCode, connected, waitingForOpponent: waiting, guestTeamId,
+      role, roomCode, connected, waitingForOpponent: waiting, guestTeamId, mpError,
       createRoom, joinRoom, sendMessage, setWaiting, onMessage, disconnect,
     }}>
       {children}
