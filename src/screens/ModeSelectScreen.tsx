@@ -4,100 +4,239 @@ export function ModeSelectScreen() {
   const { dispatch } = useGame();
 
   return (
-    <div className="relative min-h-screen text-white flex flex-col items-center justify-center px-6 overflow-hidden">
-      {/* Background image */}
+    <div
+      style={{
+        position: "relative",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        background: "#050a14",
+      }}
+    >
+      {/* Hero background */}
       <img
-        src="/marcus-wallis-mUtQXjjLPbw-unsplash.jpg"
+        src="/mainmenu.jpg"
         alt=""
         aria-hidden
-        className="absolute inset-0 w-full h-full object-cover object-center"
-        style={{ zIndex: 0 }}
-      />
-      {/* Overlay */}
-      <div
-        className="absolute inset-0"
         style={{
-          zIndex: 1,
-          background: "linear-gradient(to bottom, rgba(5,14,24,0.6) 0%, rgba(5,14,24,0.85) 50%, rgba(5,14,24,0.97) 100%)",
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center top",
+          zIndex: 0,
         }}
       />
-      <div className="relative w-full max-w-xs text-center space-y-10" style={{ zIndex: 2 }}>
-        {/* Back button */}
-        <button
-          onClick={() => dispatch({ type: "GO_TO_START" })}
-          className="absolute left-0 top-0 flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors"
+
+      {/* Gradient — darker overall so text/cards are readable when centered */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 1,
+          background:
+            "linear-gradient(to bottom, rgba(5,10,20,0.25) 0%, rgba(5,10,20,0.72) 38%, rgba(5,10,20,0.90) 65%, #050a14 90%)",
+        }}
+      />
+
+      {/* Branding — true vertical center */}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 2,
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          textAlign: "center",
+          animation: "fadeInUp 0.45s ease both",
+          pointerEvents: "none",
+        }}
+      >
+        <p
+          style={{
+            fontSize: 9,
+            color: "rgba(255,255,255,0.3)",
+            letterSpacing: "0.5em",
+            textTransform: "uppercase",
+            marginBottom: 10,
+          }}
         >
-          ‹ Back
+          by Ali Hassan
+        </p>
+        <div style={{ lineHeight: 1, letterSpacing: "-1.5px" }}>
+          <span
+            style={{
+              display: "block",
+              fontSize: 52,
+              fontWeight: 900,
+              color: "white",
+            }}
+          >
+            Cricket
+          </span>
+          <span
+            style={{
+              display: "block",
+              fontSize: 52,
+              fontWeight: 900,
+              color: "#f59e0b",
+            }}
+          >
+            Sim
+          </span>
+        </div>
+      </div>
+
+      {/* Cards — lifted from bottom */}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 2,
+          padding: "0 18px 88px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+        }}
+      >
+        {/* ── Quick Match — hero card ─────────────────────────── */}
+        <button
+          onClick={() => dispatch({ type: "GO_TO_EXHIBITION" })}
+          className="active:scale-[0.97] active:opacity-90 transition-transform duration-100"
+          style={{
+            width: "100%",
+            padding: "20px 20px",
+            borderRadius: 18,
+            background: "rgba(245,158,11,0.10)",
+            border: "1px solid rgba(245,158,11,0.30)",
+            boxShadow: "0 0 28px rgba(245,158,11,0.07)",
+            display: "flex",
+            alignItems: "center",
+            gap: 18,
+            textAlign: "left",
+            animation: "cardPop 0.5s 0.08s ease both",
+          }}
+        >
+          <span style={{ fontSize: 36, lineHeight: 1 }}>🏏</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p
+              style={{
+                color: "#fbbf24",
+                fontSize: 12,
+                fontWeight: 800,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                marginBottom: 4,
+              }}
+            >
+              Quick Match
+            </p>
+            <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 12.5 }}>
+              Pick teams, set the format, and play
+            </p>
+          </div>
+          <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 22, lineHeight: 1 }}>›</span>
         </button>
 
-        {/* Branding */}
-        <div>
-          <p className="text-[11px] text-gray-500 uppercase tracking-[0.45em] mb-3">
-            Select Mode
-          </p>
-          <h1 className="text-5xl font-black tracking-tight text-white leading-none">
-            Cricket Sim
-          </h1>
-        </div>
-
-        {/* Mode buttons */}
-        <div className="space-y-3">
-          {/* Exhibition */}
+        {/* ── Two-column grid ────────────────────────────────── */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 12,
+            animation: "cardPop 0.5s 0.18s ease both",
+          }}
+        >
+          {/* World Cup */}
           <button
-            onClick={() => dispatch({ type: "GO_TO_EXHIBITION" })}
-            className="w-full py-4 rounded-xl text-sm font-bold uppercase tracking-[0.2em] transition-all active:scale-[0.97]"
-            style={{ background: "#f4f4f5", color: "#09090b" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#ffffff"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#f4f4f5"; }}
+            onClick={() => dispatch({ type: "WC_INIT" })}
+            className="active:scale-[0.97] active:opacity-90 transition-transform duration-100"
+            style={{
+              padding: "20px 16px",
+              borderRadius: 18,
+              background: "rgba(234,179,8,0.08)",
+              border: "1px solid rgba(234,179,8,0.22)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+              gap: 12,
+              textAlign: "left",
+            }}
           >
-            Exhibition
+            <span style={{ fontSize: 30, lineHeight: 1 }}>🏆</span>
+            <div>
+              <p
+                style={{
+                  color: "#fcd34d",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  marginBottom: 3,
+                }}
+              >
+                World Cup
+              </p>
+              <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>
+                8-team tournament
+              </p>
+            </div>
           </button>
 
           {/* Multiplayer */}
           <button
             onClick={() => dispatch({ type: "GO_TO_MULTIPLAYER" })}
-            className="w-full py-4 rounded-xl text-sm font-bold uppercase tracking-[0.2em] transition-all active:scale-[0.97]"
+            className="active:scale-[0.97] active:opacity-90 transition-transform duration-100"
             style={{
-              background: "rgba(99,102,241,0.15)",
-              color: "#a5b4fc",
-              border: "1px solid rgba(99,102,241,0.35)",
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = "rgba(99,102,241,0.25)";
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = "rgba(99,102,241,0.15)";
+              padding: "20px 16px",
+              borderRadius: 18,
+              background: "rgba(99,102,241,0.08)",
+              border: "1px solid rgba(99,102,241,0.25)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+              gap: 12,
+              textAlign: "left",
             }}
           >
-            Multiplayer
+            <span style={{ fontSize: 30, lineHeight: 1 }}>📡</span>
+            <div>
+              <p
+                style={{
+                  color: "#a5b4fc",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  marginBottom: 3,
+                }}
+              >
+                Multiplayer
+              </p>
+              <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>
+                Play vs friends
+              </p>
+            </div>
           </button>
-
-          {/* World Cup — coming soon */}
-          <div className="relative">
-            <button
-              disabled
-              className="w-full py-4 rounded-xl text-sm font-bold uppercase tracking-[0.2em] cursor-not-allowed"
-              style={{
-                background: "rgba(255,255,255,0.04)",
-                color: "rgba(255,255,255,0.25)",
-                border: "1px solid rgba(255,255,255,0.08)",
-              }}
-            >
-              World Cup
-            </button>
-            <span
-              className="absolute top-1/2 right-4 -translate-y-1/2 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
-              style={{
-                background: "rgba(251,191,36,0.15)",
-                color: "#fbbf24",
-                border: "1px solid rgba(251,191,36,0.3)",
-              }}
-            >
-              Soon
-            </span>
-          </div>
         </div>
+
+        {/* Version */}
+        <p
+          style={{
+            textAlign: "center",
+            fontSize: 9.5,
+            color: "rgba(255,255,255,0.18)",
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+          }}
+        >
+          v0.1 alpha
+        </p>
       </div>
     </div>
   );
 }
+

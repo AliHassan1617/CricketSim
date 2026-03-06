@@ -59,9 +59,74 @@ button {
   100% { opacity: 1; transform: scale(1); }
 }
 
+@keyframes cardPop {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
 @keyframes celebFade {
   0%   { opacity: 0; }
   15%  { opacity: 1; }
   70%  { opacity: 1; }
   100% { opacity: 0; }
+}
+
+/* ── Cricket moment animations ──────────────────────────────────────────────── */
+@keyframes mc_batSwing {
+  0%   { transform: rotate(35deg); }
+  45%  { transform: rotate(-50deg); }
+  100% { transform: rotate(-55deg); }
+}
+@keyframes mc_ballArcSix {
+  0%   { transform: translate(108px, 126px); opacity: 1; }
+  40%  { transform: translate(155px,  62px); opacity: 1; }
+  75%  { transform: translate(215px,  75px); opacity: 1; }
+  100% { transform: translate(258px, 115px); opacity: 0; }
+}
+@keyframes mc_trailDot {
+  0%   { opacity: 0;   transform: scale(0); }
+  35%  { opacity: 0.7; transform: scale(1); }
+  100% { opacity: 0;   transform: scale(0.5); }
+}
+@keyframes mc_ballDown {
+  0%   { transform: translateY(0px);  opacity: 1; }
+  100% { transform: translateY(48px); opacity: 1; }
+}
+@keyframes mc_stump1 {
+  0%   { transform: rotate(0deg);   opacity: 1; }
+  100% { transform: rotate(-70deg); opacity: 0; }
+}
+@keyframes mc_stump2 {
+  0%   { transform: translateY(0px);   opacity: 1; }
+  100% { transform: translateY(-32px); opacity: 0; }
+}
+@keyframes mc_stump3 {
+  0%   { transform: rotate(0deg);  opacity: 1; }
+  100% { transform: rotate(70deg); opacity: 0; }
+}
+@keyframes mc_bail1 {
+  0%   { transform: translate(0,0)   rotate(0deg);    opacity: 1; }
+  100% { transform: translate(-22px,-30px) rotate(-140deg); opacity: 0; }
+}
+@keyframes mc_bail2 {
+  0%   { transform: translate(0,0)   rotate(0deg);   opacity: 1; }
+  100% { transform: translate(22px,-30px) rotate(140deg); opacity: 0; }
+}
+@keyframes mc_ballUp {
+  0%   { transform: translate(0,     0px);  opacity: 1; }
+  65%  { transform: translate(0, -100px);  opacity: 1; }
+  100% { transform: translate(0, -100px);  opacity: 0; }
+}
+@keyframes mc_fingerRaise {
+  0%   { transform: rotate(80deg); }
+  100% { transform: rotate(-8deg); }
+}
+@keyframes mc_padHit {
+  0%   { opacity: 0; }
+  30%  { opacity: 0.55; }
+  100% { opacity: 0; }
+}
+@keyframes mc_ballSide {
+  0%   { transform: translateX(0px);  opacity: 1; }
+  100% { transform: translateX(44px); opacity: 1; }
 }

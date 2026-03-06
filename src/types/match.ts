@@ -11,6 +11,7 @@ import {
 } from "./enums";
 import { Team } from "./player";
 import { Stadium } from "../data/stadiums";
+import { WorldCupState } from "./worldCup";
 
 export interface BallEvent {
   ballNumber: number;
@@ -109,7 +110,9 @@ export interface MatchState {
   // Innings
   firstInnings: Innings | null;
   secondInnings: Innings | null;
-  currentInnings: 1 | 2;
+  thirdInnings: Innings | null;
+  fourthInnings: Innings | null;
+  currentInnings: 1 | 2 | 3 | 4;
   needsBowlerChange: boolean;
 
   // Player profile modal
@@ -126,4 +129,7 @@ export interface MatchState {
 
   // Selected stadium
   stadium: Stadium | null;
+
+  // World Cup tournament state (null when not in WC mode)
+  worldCup: WorldCupState | null;
 }

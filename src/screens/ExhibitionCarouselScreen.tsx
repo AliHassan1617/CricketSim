@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useGame } from "../state/gameContext";
 import { getAllTeams } from "../data/teamDb";
 import { Team } from "../types/player";
+import { BackButton } from "../components/BackButton";
 
 const TEAMS = getAllTeams();
 
@@ -158,15 +159,10 @@ export function ExhibitionCarouselScreen() {
 
       <div className="relative flex flex-col flex-1" style={{ zIndex: 2 }}>
       {/* Header */}
-      <div className="text-center mb-8">
-        <button
-          onClick={() => dispatch({ type: "GO_TO_MAIN_MENU" })}
-          className="text-xs text-gray-400 hover:text-white transition-colors mb-4 block"
-        >
-          ‹ Back
-        </button>
-        <p className="text-[10px] text-gray-400 uppercase tracking-[0.4em] mb-1">Exhibition</p>
-        <h2 className="text-3xl font-black text-white">Pick Teams</h2>
+      <div className="mb-8">
+        <BackButton onClick={() => dispatch({ type: "GO_TO_MAIN_MENU" })} style={{ marginBottom: 16 }} />
+        <p className="text-[10px] text-gray-400 uppercase tracking-[0.4em] mb-1 text-center">Exhibition</p>
+        <h2 className="text-3xl font-black text-white text-center">Pick Teams</h2>
       </div>
 
       {/* Side-by-side carousels — cards are the main focus */}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useGame } from "../state/gameContext";
 import { PitchBadge } from "../components/PitchBadge";
+import { BackButton } from "../components/BackButton";
 
 type TossStep = "call" | "flipping" | "result" | "choose" | "ready";
 
@@ -97,12 +98,7 @@ export function TossScreen() {
 
         {/* Header */}
         <div className="text-center mb-8" style={{ animation: "fadeInUp 0.4s ease" }}>
-          <button
-            onClick={() => dispatch({ type: "GO_TO_PRE_MATCH" })}
-            className="text-xs text-gray-400 hover:text-white transition-colors mb-4 block mx-auto"
-          >
-            ‹ Back to Squads
-          </button>
+          <BackButton onClick={() => dispatch({ type: "GO_TO_PRE_MATCH" })} style={{ marginBottom: 16 }} />
           <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">
             {state.format} · {userTeamName} vs {oppTeamName}
           </p>

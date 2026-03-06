@@ -1,5 +1,5 @@
 import { BowlerType } from "../types/enums";
-import { Player } from "../types/player";
+import { BattingPosition, Player } from "../types/player";
 
 /**
  * Central player database — all players from all teams in a flat record.
@@ -639,4 +639,699 @@ export const playerDb: Record<string, Player> = {
     batting: { power: 34, temperament: 42, techniqueVsPace: 30, techniqueVsSpin: 26, acceleration: 28, offsideSkill: 28, legsideSkill: 32, runningBetweenWickets: 34 },
     bowling: { bowlerType: BowlerType.Pace, mainSkill: 76, control: 70, variation: 66, deathBowling: 72, lineDiscipline: 68, pressureHandling: 66 },
   },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // INDIA extended squad  (t16 – t30)  — Test & format-depth players
+  // ─────────────────────────────────────────────────────────────────────────
+  t16: {
+    id: "t16", name: "Rohit Sharma", shortName: "R Sharma", role: "batsman",
+    batting: { power: 88, temperament: 82, techniqueVsPace: 88, techniqueVsSpin: 82, acceleration: 84, offsideSkill: 86, legsideSkill: 84, runningBetweenWickets: 78 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 18, control: 20, variation: 14, deathBowling: 12, lineDiscipline: 16, pressureHandling: 18 },
+  },
+  t17: {
+    id: "t17", name: "Virat Kohli", shortName: "V Kohli", role: "batsman",
+    batting: { power: 80, temperament: 94, techniqueVsPace: 94, techniqueVsSpin: 90, acceleration: 74, offsideSkill: 92, legsideSkill: 82, runningBetweenWickets: 88 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  t18: {
+    id: "t18", name: "Shubman Gill", shortName: "S Gill", role: "batsman",
+    batting: { power: 78, temperament: 80, techniqueVsPace: 84, techniqueVsSpin: 78, acceleration: 76, offsideSkill: 82, legsideSkill: 76, runningBetweenWickets: 80 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 10, control: 12, variation: 8, deathBowling: 6, lineDiscipline: 10, pressureHandling: 12 },
+  },
+  t19: {
+    id: "t19", name: "KL Rahul", shortName: "KL Rahul", role: "wicket-keeper",
+    batting: { power: 76, temperament: 78, techniqueVsPace: 82, techniqueVsSpin: 78, acceleration: 76, offsideSkill: 80, legsideSkill: 74, runningBetweenWickets: 78 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 5, control: 8, variation: 5, deathBowling: 5, lineDiscipline: 5, pressureHandling: 8 },
+  },
+  t20: {
+    id: "t20", name: "Yashasvi Jaiswal", shortName: "Y Jaiswal", role: "batsman",
+    batting: { power: 84, temperament: 78, techniqueVsPace: 82, techniqueVsSpin: 82, acceleration: 86, offsideSkill: 78, legsideSkill: 84, runningBetweenWickets: 76 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  t21: {
+    id: "t21", name: "Rishabh Pant", shortName: "R Pant", role: "wicket-keeper",
+    batting: { power: 88, temperament: 68, techniqueVsPace: 80, techniqueVsSpin: 78, acceleration: 86, offsideSkill: 78, legsideSkill: 84, runningBetweenWickets: 72 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 5, control: 8, variation: 5, deathBowling: 5, lineDiscipline: 5, pressureHandling: 8 },
+  },
+  t22: {
+    id: "t22", name: "Ravindra Jadeja", shortName: "R Jadeja", role: "all-rounder",
+    batting: { power: 68, temperament: 78, techniqueVsPace: 66, techniqueVsSpin: 72, acceleration: 66, offsideSkill: 64, legsideSkill: 70, runningBetweenWickets: 76 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 84, control: 84, variation: 74, deathBowling: 68, lineDiscipline: 88, pressureHandling: 82 },
+  },
+  t23: {
+    id: "t23", name: "Ravichandran Ashwin", shortName: "R Ashwin", role: "all-rounder",
+    batting: { power: 62, temperament: 74, techniqueVsPace: 62, techniqueVsSpin: 70, acceleration: 58, offsideSkill: 60, legsideSkill: 64, runningBetweenWickets: 70 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 90, control: 86, variation: 88, deathBowling: 70, lineDiscipline: 88, pressureHandling: 86 },
+  },
+  t24: {
+    id: "t24", name: "Cheteshwar Pujara", shortName: "C Pujara", role: "batsman",
+    batting: { power: 62, temperament: 94, techniqueVsPace: 90, techniqueVsSpin: 88, acceleration: 52, offsideSkill: 84, legsideSkill: 72, runningBetweenWickets: 80 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  t25: {
+    id: "t25", name: "Ajinkya Rahane", shortName: "A Rahane", role: "batsman",
+    batting: { power: 66, temperament: 88, techniqueVsPace: 86, techniqueVsSpin: 84, acceleration: 60, offsideSkill: 82, legsideSkill: 74, runningBetweenWickets: 82 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 10, control: 12, variation: 8, deathBowling: 5, lineDiscipline: 10, pressureHandling: 12 },
+  },
+  t26: {
+    id: "t26", name: "Mohammed Shami", shortName: "M Shami", role: "bowler",
+    batting: { power: 44, temperament: 50, techniqueVsPace: 40, techniqueVsSpin: 36, acceleration: 38, offsideSkill: 38, legsideSkill: 42, runningBetweenWickets: 42 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 88, control: 82, variation: 78, deathBowling: 76, lineDiscipline: 84, pressureHandling: 80 },
+  },
+  t27: {
+    id: "t27", name: "Prasidh Krishna", shortName: "P Krishna", role: "bowler",
+    batting: { power: 40, temperament: 46, techniqueVsPace: 36, techniqueVsSpin: 32, acceleration: 34, offsideSkill: 34, legsideSkill: 38, runningBetweenWickets: 38 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 78, control: 76, variation: 70, deathBowling: 72, lineDiscipline: 76, pressureHandling: 72 },
+  },
+  t28: {
+    id: "t28", name: "Akash Deep", shortName: "Akash Deep", role: "bowler",
+    batting: { power: 38, temperament: 44, techniqueVsPace: 34, techniqueVsSpin: 30, acceleration: 32, offsideSkill: 32, legsideSkill: 36, runningBetweenWickets: 36 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 76, control: 74, variation: 68, deathBowling: 70, lineDiscipline: 74, pressureHandling: 70 },
+  },
+  t29: {
+    id: "t29", name: "Nitish Kumar Reddy", shortName: "NK Reddy", role: "all-rounder",
+    batting: { power: 78, temperament: 68, techniqueVsPace: 70, techniqueVsSpin: 66, acceleration: 74, offsideSkill: 68, legsideSkill: 74, runningBetweenWickets: 68 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 62, control: 60, variation: 54, deathBowling: 60, lineDiscipline: 58, pressureHandling: 58 },
+  },
+  t30: {
+    id: "t30", name: "Dhruv Jurel", shortName: "D Jurel", role: "wicket-keeper",
+    batting: { power: 66, temperament: 76, techniqueVsPace: 72, techniqueVsSpin: 70, acceleration: 64, offsideSkill: 68, legsideSkill: 66, runningBetweenWickets: 76 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 5, control: 8, variation: 5, deathBowling: 5, lineDiscipline: 5, pressureHandling: 8 },
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PAKISTAN extended squad  (s16 – s30)
+  // ─────────────────────────────────────────────────────────────────────────
+  s16: {
+    id: "s16", name: "Mohammad Rizwan", shortName: "M Rizwan", role: "wicket-keeper",
+    batting: { power: 78, temperament: 82, techniqueVsPace: 82, techniqueVsSpin: 78, acceleration: 74, offsideSkill: 78, legsideSkill: 76, runningBetweenWickets: 80 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 5, control: 8, variation: 5, deathBowling: 5, lineDiscipline: 5, pressureHandling: 8 },
+  },
+  s17: {
+    id: "s17", name: "Shan Masood", shortName: "S Masood", role: "batsman",
+    batting: { power: 66, temperament: 82, techniqueVsPace: 82, techniqueVsSpin: 78, acceleration: 60, offsideSkill: 76, legsideSkill: 74, runningBetweenWickets: 80 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  s18: {
+    id: "s18", name: "Abdullah Shafique", shortName: "A Shafique", role: "batsman",
+    batting: { power: 64, temperament: 82, techniqueVsPace: 82, techniqueVsSpin: 78, acceleration: 58, offsideSkill: 78, legsideSkill: 72, runningBetweenWickets: 78 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  s19: {
+    id: "s19", name: "Saud Shakeel", shortName: "Saud Shakeel", role: "batsman",
+    batting: { power: 62, temperament: 84, techniqueVsPace: 82, techniqueVsSpin: 84, acceleration: 58, offsideSkill: 76, legsideSkill: 78, runningBetweenWickets: 80 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  s20: {
+    id: "s20", name: "Imam-ul-Haq", shortName: "Imam-ul-Haq", role: "batsman",
+    batting: { power: 60, temperament: 82, techniqueVsPace: 80, techniqueVsSpin: 78, acceleration: 56, offsideSkill: 76, legsideSkill: 70, runningBetweenWickets: 76 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  s21: {
+    id: "s21", name: "Agha Salman", shortName: "Agha Salman", role: "all-rounder",
+    batting: { power: 66, temperament: 70, techniqueVsPace: 66, techniqueVsSpin: 68, acceleration: 62, offsideSkill: 64, legsideSkill: 66, runningBetweenWickets: 68 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 68, control: 66, variation: 60, deathBowling: 64, lineDiscipline: 64, pressureHandling: 62 },
+  },
+  s22: {
+    id: "s22", name: "Haris Rauf", shortName: "H Rauf", role: "bowler",
+    batting: { power: 38, temperament: 44, techniqueVsPace: 34, techniqueVsSpin: 30, acceleration: 32, offsideSkill: 30, legsideSkill: 34, runningBetweenWickets: 36 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 82, control: 72, variation: 72, deathBowling: 80, lineDiscipline: 72, pressureHandling: 70 },
+  },
+  s23: {
+    id: "s23", name: "Mohammad Abbas", shortName: "M Abbas", role: "bowler",
+    batting: { power: 36, temperament: 42, techniqueVsPace: 34, techniqueVsSpin: 30, acceleration: 30, offsideSkill: 30, legsideSkill: 34, runningBetweenWickets: 34 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 78, control: 84, variation: 70, deathBowling: 60, lineDiscipline: 90, pressureHandling: 76 },
+  },
+  s24: {
+    id: "s24", name: "Zaman Khan", shortName: "Zaman Khan", role: "bowler",
+    batting: { power: 36, temperament: 42, techniqueVsPace: 32, techniqueVsSpin: 28, acceleration: 30, offsideSkill: 28, legsideSkill: 32, runningBetweenWickets: 34 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 76, control: 72, variation: 68, deathBowling: 72, lineDiscipline: 70, pressureHandling: 66 },
+  },
+  s25: {
+    id: "s25", name: "Mohammad Wasim Jr", shortName: "MW Junior", role: "bowler",
+    batting: { power: 40, temperament: 46, techniqueVsPace: 36, techniqueVsSpin: 32, acceleration: 34, offsideSkill: 32, legsideSkill: 36, runningBetweenWickets: 38 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 74, control: 70, variation: 66, deathBowling: 70, lineDiscipline: 68, pressureHandling: 64 },
+  },
+  s26: {
+    id: "s26", name: "Iftikhar Ahmed", shortName: "Iftikhar", role: "all-rounder",
+    batting: { power: 82, temperament: 66, techniqueVsPace: 70, techniqueVsSpin: 72, acceleration: 78, offsideSkill: 68, legsideSkill: 76, runningBetweenWickets: 68 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 54, control: 52, variation: 48, deathBowling: 52, lineDiscipline: 50, pressureHandling: 50 },
+  },
+  s27: {
+    id: "s27", name: "Azam Khan", shortName: "Azam Khan", role: "wicket-keeper",
+    batting: { power: 90, temperament: 60, techniqueVsPace: 68, techniqueVsSpin: 64, acceleration: 86, offsideSkill: 66, legsideSkill: 80, runningBetweenWickets: 58 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 5, control: 8, variation: 5, deathBowling: 5, lineDiscipline: 5, pressureHandling: 8 },
+  },
+  s28: {
+    id: "s28", name: "Kamran Ghulam", shortName: "K Ghulam", role: "batsman",
+    batting: { power: 68, temperament: 76, techniqueVsPace: 74, techniqueVsSpin: 70, acceleration: 64, offsideSkill: 72, legsideSkill: 68, runningBetweenWickets: 74 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  s29: {
+    id: "s29", name: "Aamer Jamal", shortName: "A Jamal", role: "all-rounder",
+    batting: { power: 62, temperament: 62, techniqueVsPace: 58, techniqueVsSpin: 54, acceleration: 60, offsideSkill: 56, legsideSkill: 60, runningBetweenWickets: 60 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 72, control: 68, variation: 64, deathBowling: 70, lineDiscipline: 66, pressureHandling: 62 },
+  },
+  s30: {
+    id: "s30", name: "Tayyab Tahir", shortName: "T Tahir", role: "batsman",
+    batting: { power: 72, temperament: 72, techniqueVsPace: 68, techniqueVsSpin: 70, acceleration: 68, offsideSkill: 68, legsideSkill: 70, runningBetweenWickets: 70 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 10, control: 12, variation: 8, deathBowling: 6, lineDiscipline: 10, pressureHandling: 12 },
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ENGLAND extended squad  (e16 – e30)
+  // ─────────────────────────────────────────────────────────────────────────
+  e16: {
+    id: "e16", name: "Zak Crawley", shortName: "Z Crawley", role: "batsman",
+    batting: { power: 74, temperament: 76, techniqueVsPace: 82, techniqueVsSpin: 74, acceleration: 72, offsideSkill: 80, legsideSkill: 70, runningBetweenWickets: 76 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  e17: {
+    id: "e17", name: "Ollie Pope", shortName: "O Pope", role: "batsman",
+    batting: { power: 72, temperament: 80, techniqueVsPace: 84, techniqueVsSpin: 78, acceleration: 68, offsideSkill: 82, legsideSkill: 72, runningBetweenWickets: 78 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 10, control: 12, variation: 8, deathBowling: 5, lineDiscipline: 10, pressureHandling: 12 },
+  },
+  e18: {
+    id: "e18", name: "Joe Root", shortName: "J Root", role: "batsman",
+    batting: { power: 74, temperament: 92, techniqueVsPace: 92, techniqueVsSpin: 92, acceleration: 68, offsideSkill: 90, legsideSkill: 76, runningBetweenWickets: 86 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 60, control: 62, variation: 68, deathBowling: 48, lineDiscipline: 60, pressureHandling: 62 },
+  },
+  e19: {
+    id: "e19", name: "Ben Stokes", shortName: "B Stokes", role: "all-rounder",
+    batting: { power: 86, temperament: 88, techniqueVsPace: 86, techniqueVsSpin: 80, acceleration: 82, offsideSkill: 80, legsideSkill: 82, runningBetweenWickets: 80 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 82, control: 76, variation: 70, deathBowling: 80, lineDiscipline: 72, pressureHandling: 84 },
+  },
+  e20: {
+    id: "e20", name: "Jonny Bairstow", shortName: "J Bairstow", role: "wicket-keeper",
+    batting: { power: 84, temperament: 70, techniqueVsPace: 80, techniqueVsSpin: 72, acceleration: 82, offsideSkill: 76, legsideSkill: 78, runningBetweenWickets: 72 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 5, control: 8, variation: 5, deathBowling: 5, lineDiscipline: 5, pressureHandling: 8 },
+  },
+  e21: {
+    id: "e21", name: "Ben Foakes", shortName: "B Foakes", role: "wicket-keeper",
+    batting: { power: 64, temperament: 78, techniqueVsPace: 76, techniqueVsSpin: 74, acceleration: 60, offsideSkill: 74, legsideSkill: 68, runningBetweenWickets: 76 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 5, control: 8, variation: 5, deathBowling: 5, lineDiscipline: 5, pressureHandling: 8 },
+  },
+  e22: {
+    id: "e22", name: "Ollie Robinson", shortName: "O Robinson", role: "bowler",
+    batting: { power: 44, temperament: 52, techniqueVsPace: 42, techniqueVsSpin: 38, acceleration: 40, offsideSkill: 40, legsideSkill: 42, runningBetweenWickets: 44 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 82, control: 80, variation: 72, deathBowling: 70, lineDiscipline: 82, pressureHandling: 76 },
+  },
+  e23: {
+    id: "e23", name: "Brydon Carse", shortName: "B Carse", role: "bowler",
+    batting: { power: 48, temperament: 52, techniqueVsPace: 44, techniqueVsSpin: 40, acceleration: 42, offsideSkill: 42, legsideSkill: 46, runningBetweenWickets: 44 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 80, control: 76, variation: 72, deathBowling: 76, lineDiscipline: 74, pressureHandling: 72 },
+  },
+  e24: {
+    id: "e24", name: "Shoaib Bashir", shortName: "S Bashir", role: "bowler",
+    batting: { power: 36, temperament: 44, techniqueVsPace: 30, techniqueVsSpin: 34, acceleration: 30, offsideSkill: 30, legsideSkill: 32, runningBetweenWickets: 36 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 78, control: 74, variation: 80, deathBowling: 64, lineDiscipline: 74, pressureHandling: 70 },
+  },
+  e25: {
+    id: "e25", name: "Tom Hartley", shortName: "T Hartley", role: "bowler",
+    batting: { power: 38, temperament: 46, techniqueVsPace: 32, techniqueVsSpin: 36, acceleration: 32, offsideSkill: 32, legsideSkill: 34, runningBetweenWickets: 38 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 76, control: 74, variation: 78, deathBowling: 62, lineDiscipline: 76, pressureHandling: 68 },
+  },
+  e26: {
+    id: "e26", name: "Jamie Smith", shortName: "J Smith", role: "wicket-keeper",
+    batting: { power: 76, temperament: 72, techniqueVsPace: 76, techniqueVsSpin: 70, acceleration: 74, offsideSkill: 74, legsideSkill: 72, runningBetweenWickets: 74 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 5, control: 8, variation: 5, deathBowling: 5, lineDiscipline: 5, pressureHandling: 8 },
+  },
+  e27: {
+    id: "e27", name: "Jacob Bethell", shortName: "J Bethell", role: "all-rounder",
+    batting: { power: 74, temperament: 70, techniqueVsPace: 72, techniqueVsSpin: 74, acceleration: 72, offsideSkill: 70, legsideSkill: 72, runningBetweenWickets: 72 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 62, control: 60, variation: 64, deathBowling: 54, lineDiscipline: 62, pressureHandling: 60 },
+  },
+  e28: {
+    id: "e28", name: "Will Jacks", shortName: "W Jacks", role: "all-rounder",
+    batting: { power: 76, temperament: 68, techniqueVsPace: 72, techniqueVsSpin: 70, acceleration: 74, offsideSkill: 70, legsideSkill: 72, runningBetweenWickets: 70 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 66, control: 62, variation: 68, deathBowling: 56, lineDiscipline: 62, pressureHandling: 62 },
+  },
+  e29: {
+    id: "e29", name: "Matt Potts", shortName: "M Potts", role: "bowler",
+    batting: { power: 42, temperament: 50, techniqueVsPace: 40, techniqueVsSpin: 36, acceleration: 38, offsideSkill: 38, legsideSkill: 40, runningBetweenWickets: 42 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 78, control: 76, variation: 68, deathBowling: 72, lineDiscipline: 76, pressureHandling: 72 },
+  },
+  e30: {
+    id: "e30", name: "Dan Lawrence", shortName: "D Lawrence", role: "batsman",
+    batting: { power: 70, temperament: 72, techniqueVsPace: 74, techniqueVsSpin: 72, acceleration: 66, offsideSkill: 72, legsideSkill: 68, runningBetweenWickets: 72 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 40, control: 42, variation: 36, deathBowling: 32, lineDiscipline: 40, pressureHandling: 42 },
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AUSTRALIA extended squad  (a16 – a30)
+  // ─────────────────────────────────────────────────────────────────────────
+  a16: {
+    id: "a16", name: "Steven Smith", shortName: "S Smith", role: "batsman",
+    batting: { power: 72, temperament: 92, techniqueVsPace: 90, techniqueVsSpin: 88, acceleration: 68, offsideSkill: 82, legsideSkill: 80, runningBetweenWickets: 82 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 54, control: 52, variation: 50, deathBowling: 42, lineDiscipline: 50, pressureHandling: 52 },
+  },
+  a17: {
+    id: "a17", name: "Marnus Labuschagne", shortName: "M Labuschagne", role: "batsman",
+    batting: { power: 72, temperament: 88, techniqueVsPace: 88, techniqueVsSpin: 84, acceleration: 66, offsideSkill: 82, legsideSkill: 76, runningBetweenWickets: 82 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 50, control: 52, variation: 48, deathBowling: 40, lineDiscipline: 50, pressureHandling: 50 },
+  },
+  a18: {
+    id: "a18", name: "Usman Khawaja", shortName: "U Khawaja", role: "batsman",
+    batting: { power: 68, temperament: 86, techniqueVsPace: 86, techniqueVsSpin: 82, acceleration: 62, offsideSkill: 82, legsideSkill: 72, runningBetweenWickets: 80 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  a19: {
+    id: "a19", name: "Alex Carey", shortName: "A Carey", role: "wicket-keeper",
+    batting: { power: 68, temperament: 72, techniqueVsPace: 72, techniqueVsSpin: 68, acceleration: 64, offsideSkill: 70, legsideSkill: 68, runningBetweenWickets: 74 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 5, control: 8, variation: 5, deathBowling: 5, lineDiscipline: 5, pressureHandling: 8 },
+  },
+  a20: {
+    id: "a20", name: "Nathan Lyon", shortName: "N Lyon", role: "bowler",
+    batting: { power: 42, temperament: 52, techniqueVsPace: 40, techniqueVsSpin: 44, acceleration: 36, offsideSkill: 38, legsideSkill: 40, runningBetweenWickets: 44 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 88, control: 84, variation: 82, deathBowling: 66, lineDiscipline: 86, pressureHandling: 82 },
+  },
+  a21: {
+    id: "a21", name: "Scott Boland", shortName: "S Boland", role: "bowler",
+    batting: { power: 38, temperament: 48, techniqueVsPace: 36, techniqueVsSpin: 32, acceleration: 32, offsideSkill: 32, legsideSkill: 36, runningBetweenWickets: 38 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 86, control: 84, variation: 72, deathBowling: 72, lineDiscipline: 86, pressureHandling: 78 },
+  },
+  a22: {
+    id: "a22", name: "Matthew Renshaw", shortName: "M Renshaw", role: "batsman",
+    batting: { power: 62, temperament: 80, techniqueVsPace: 80, techniqueVsSpin: 74, acceleration: 58, offsideSkill: 76, legsideSkill: 68, runningBetweenWickets: 76 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  a23: {
+    id: "a23", name: "Michael Neser", shortName: "M Neser", role: "all-rounder",
+    batting: { power: 64, temperament: 68, techniqueVsPace: 64, techniqueVsSpin: 60, acceleration: 60, offsideSkill: 62, legsideSkill: 62, runningBetweenWickets: 66 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 74, control: 72, variation: 66, deathBowling: 68, lineDiscipline: 70, pressureHandling: 68 },
+  },
+  a24: {
+    id: "a24", name: "Aaron Hardie", shortName: "A Hardie", role: "all-rounder",
+    batting: { power: 70, temperament: 68, techniqueVsPace: 68, techniqueVsSpin: 64, acceleration: 66, offsideSkill: 66, legsideSkill: 66, runningBetweenWickets: 68 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 68, control: 66, variation: 60, deathBowling: 66, lineDiscipline: 64, pressureHandling: 62 },
+  },
+  a25: {
+    id: "a25", name: "Ben McDermott", shortName: "B McDermott", role: "batsman",
+    batting: { power: 80, temperament: 64, techniqueVsPace: 72, techniqueVsSpin: 68, acceleration: 76, offsideSkill: 72, legsideSkill: 72, runningBetweenWickets: 70 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 5, control: 8, variation: 5, deathBowling: 5, lineDiscipline: 5, pressureHandling: 8 },
+  },
+  a26: {
+    id: "a26", name: "Todd Murphy", shortName: "T Murphy", role: "bowler",
+    batting: { power: 36, temperament: 46, techniqueVsPace: 32, techniqueVsSpin: 36, acceleration: 30, offsideSkill: 30, legsideSkill: 32, runningBetweenWickets: 36 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 76, control: 74, variation: 76, deathBowling: 60, lineDiscipline: 74, pressureHandling: 70 },
+  },
+  a27: {
+    id: "a27", name: "Sean Abbott", shortName: "S Abbott", role: "bowler",
+    batting: { power: 42, temperament: 50, techniqueVsPace: 38, techniqueVsSpin: 34, acceleration: 36, offsideSkill: 36, legsideSkill: 40, runningBetweenWickets: 40 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 76, control: 72, variation: 66, deathBowling: 74, lineDiscipline: 70, pressureHandling: 68 },
+  },
+  a28: {
+    id: "a28", name: "Cooper Connolly", shortName: "C Connolly", role: "all-rounder",
+    batting: { power: 68, temperament: 68, techniqueVsPace: 68, techniqueVsSpin: 64, acceleration: 64, offsideSkill: 66, legsideSkill: 66, runningBetweenWickets: 68 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 60, control: 58, variation: 62, deathBowling: 52, lineDiscipline: 58, pressureHandling: 58 },
+  },
+  a29: {
+    id: "a29", name: "Xavier Bartlett", shortName: "X Bartlett", role: "bowler",
+    batting: { power: 40, temperament: 46, techniqueVsPace: 36, techniqueVsSpin: 32, acceleration: 34, offsideSkill: 32, legsideSkill: 36, runningBetweenWickets: 36 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 74, control: 70, variation: 66, deathBowling: 72, lineDiscipline: 68, pressureHandling: 66 },
+  },
+  a30: {
+    id: "a30", name: "Beau Webster", shortName: "B Webster", role: "all-rounder",
+    batting: { power: 72, temperament: 70, techniqueVsPace: 70, techniqueVsSpin: 68, acceleration: 68, offsideSkill: 68, legsideSkill: 68, runningBetweenWickets: 70 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 64, control: 62, variation: 56, deathBowling: 62, lineDiscipline: 60, pressureHandling: 60 },
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SOUTH AFRICA extended squad  (sa16 – sa30)
+  // ─────────────────────────────────────────────────────────────────────────
+  sa16: {
+    id: "sa16", name: "Tony de Zorzi", shortName: "T de Zorzi", role: "batsman",
+    batting: { power: 68, temperament: 78, techniqueVsPace: 78, techniqueVsSpin: 72, acceleration: 64, offsideSkill: 76, legsideSkill: 70, runningBetweenWickets: 76 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  sa17: {
+    id: "sa17", name: "Rassie van der Dussen", shortName: "R van der Dussen", role: "batsman",
+    batting: { power: 68, temperament: 80, techniqueVsPace: 80, techniqueVsSpin: 76, acceleration: 64, offsideSkill: 76, legsideSkill: 70, runningBetweenWickets: 78 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  sa18: {
+    id: "sa18", name: "Sarel Erwee", shortName: "S Erwee", role: "batsman",
+    batting: { power: 64, temperament: 80, techniqueVsPace: 78, techniqueVsSpin: 74, acceleration: 58, offsideSkill: 74, legsideSkill: 68, runningBetweenWickets: 78 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  sa19: {
+    id: "sa19", name: "Kyle Verreynne", shortName: "K Verreynne", role: "wicket-keeper",
+    batting: { power: 70, temperament: 74, techniqueVsPace: 74, techniqueVsSpin: 70, acceleration: 66, offsideSkill: 70, legsideSkill: 68, runningBetweenWickets: 74 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 5, control: 8, variation: 5, deathBowling: 5, lineDiscipline: 5, pressureHandling: 8 },
+  },
+  sa20: {
+    id: "sa20", name: "Dewald Brevis", shortName: "D Brevis", role: "batsman",
+    batting: { power: 88, temperament: 66, techniqueVsPace: 74, techniqueVsSpin: 72, acceleration: 86, offsideSkill: 76, legsideSkill: 80, runningBetweenWickets: 68 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 10, control: 12, variation: 8, deathBowling: 6, lineDiscipline: 10, pressureHandling: 12 },
+  },
+  sa21: {
+    id: "sa21", name: "Dane Paterson", shortName: "D Paterson", role: "bowler",
+    batting: { power: 38, temperament: 46, techniqueVsPace: 36, techniqueVsSpin: 32, acceleration: 32, offsideSkill: 32, legsideSkill: 36, runningBetweenWickets: 38 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 78, control: 76, variation: 68, deathBowling: 68, lineDiscipline: 78, pressureHandling: 72 },
+  },
+  sa22: {
+    id: "sa22", name: "Lutho Sipamla", shortName: "L Sipamla", role: "bowler",
+    batting: { power: 40, temperament: 46, techniqueVsPace: 36, techniqueVsSpin: 32, acceleration: 34, offsideSkill: 32, legsideSkill: 36, runningBetweenWickets: 38 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 76, control: 72, variation: 68, deathBowling: 72, lineDiscipline: 70, pressureHandling: 68 },
+  },
+  sa23: {
+    id: "sa23", name: "Simon Harmer", shortName: "S Harmer", role: "bowler",
+    batting: { power: 46, temperament: 54, techniqueVsPace: 44, techniqueVsSpin: 48, acceleration: 42, offsideSkill: 42, legsideSkill: 44, runningBetweenWickets: 46 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 80, control: 78, variation: 78, deathBowling: 66, lineDiscipline: 80, pressureHandling: 74 },
+  },
+  sa24: {
+    id: "sa24", name: "George Linde", shortName: "G Linde", role: "all-rounder",
+    batting: { power: 62, temperament: 68, techniqueVsPace: 62, techniqueVsSpin: 68, acceleration: 58, offsideSkill: 60, legsideSkill: 62, runningBetweenWickets: 66 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 70, control: 72, variation: 68, deathBowling: 58, lineDiscipline: 74, pressureHandling: 66 },
+  },
+  sa25: {
+    id: "sa25", name: "Neil Brand", shortName: "N Brand", role: "batsman",
+    batting: { power: 62, temperament: 80, techniqueVsPace: 78, techniqueVsSpin: 76, acceleration: 56, offsideSkill: 72, legsideSkill: 72, runningBetweenWickets: 78 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 10, control: 12, variation: 8, deathBowling: 6, lineDiscipline: 10, pressureHandling: 12 },
+  },
+  sa26: {
+    id: "sa26", name: "Matthew Breetzke", shortName: "M Breetzke", role: "batsman",
+    batting: { power: 66, temperament: 72, techniqueVsPace: 72, techniqueVsSpin: 68, acceleration: 60, offsideSkill: 70, legsideSkill: 66, runningBetweenWickets: 72 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  sa27: {
+    id: "sa27", name: "Mpho Sekhukhune", shortName: "M Sekhukhune", role: "bowler",
+    batting: { power: 36, temperament: 44, techniqueVsPace: 32, techniqueVsSpin: 28, acceleration: 30, offsideSkill: 28, legsideSkill: 32, runningBetweenWickets: 34 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 74, control: 70, variation: 68, deathBowling: 68, lineDiscipline: 70, pressureHandling: 66 },
+  },
+  sa28: {
+    id: "sa28", name: "Nandre Burger", shortName: "N Burger", role: "bowler",
+    batting: { power: 36, temperament: 44, techniqueVsPace: 32, techniqueVsSpin: 28, acceleration: 30, offsideSkill: 28, legsideSkill: 32, runningBetweenWickets: 34 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 76, control: 72, variation: 68, deathBowling: 70, lineDiscipline: 72, pressureHandling: 68 },
+  },
+  sa29: {
+    id: "sa29", name: "Corbin Bosch", shortName: "C Bosch", role: "all-rounder",
+    batting: { power: 68, temperament: 68, techniqueVsPace: 66, techniqueVsSpin: 62, acceleration: 64, offsideSkill: 62, legsideSkill: 64, runningBetweenWickets: 66 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 66, control: 64, variation: 58, deathBowling: 64, lineDiscipline: 62, pressureHandling: 60 },
+  },
+  sa30: {
+    id: "sa30", name: "Patrick Kruger", shortName: "P Kruger", role: "bowler",
+    batting: { power: 34, temperament: 44, techniqueVsPace: 30, techniqueVsSpin: 34, acceleration: 28, offsideSkill: 28, legsideSkill: 30, runningBetweenWickets: 34 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 72, control: 70, variation: 74, deathBowling: 58, lineDiscipline: 70, pressureHandling: 64 },
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // NEW ZEALAND extended squad  (nz16 – nz30)
+  // ─────────────────────────────────────────────────────────────────────────
+  nz16: {
+    id: "nz16", name: "Henry Nicholls", shortName: "H Nicholls", role: "batsman",
+    batting: { power: 64, temperament: 82, techniqueVsPace: 80, techniqueVsSpin: 78, acceleration: 58, offsideSkill: 78, legsideSkill: 70, runningBetweenWickets: 80 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  nz17: {
+    id: "nz17", name: "Tom Blundell", shortName: "T Blundell", role: "wicket-keeper",
+    batting: { power: 64, temperament: 76, techniqueVsPace: 76, techniqueVsSpin: 72, acceleration: 60, offsideSkill: 72, legsideSkill: 66, runningBetweenWickets: 76 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 5, control: 8, variation: 5, deathBowling: 5, lineDiscipline: 5, pressureHandling: 8 },
+  },
+  nz18: {
+    id: "nz18", name: "Mark Chapman", shortName: "M Chapman", role: "batsman",
+    batting: { power: 68, temperament: 72, techniqueVsPace: 72, techniqueVsSpin: 74, acceleration: 64, offsideSkill: 70, legsideSkill: 72, runningBetweenWickets: 72 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 12, control: 14, variation: 10, deathBowling: 8, lineDiscipline: 12, pressureHandling: 14 },
+  },
+  nz19: {
+    id: "nz19", name: "Will Young", shortName: "W Young", role: "batsman",
+    batting: { power: 62, temperament: 80, techniqueVsPace: 78, techniqueVsSpin: 74, acceleration: 56, offsideSkill: 74, legsideSkill: 66, runningBetweenWickets: 78 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  nz20: {
+    id: "nz20", name: "Neil Wagner", shortName: "N Wagner", role: "bowler",
+    batting: { power: 40, temperament: 50, techniqueVsPace: 38, techniqueVsSpin: 34, acceleration: 34, offsideSkill: 34, legsideSkill: 38, runningBetweenWickets: 40 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 80, control: 74, variation: 70, deathBowling: 72, lineDiscipline: 74, pressureHandling: 72 },
+  },
+  nz21: {
+    id: "nz21", name: "Kyle Jamieson", shortName: "K Jamieson", role: "bowler",
+    batting: { power: 48, temperament: 54, techniqueVsPace: 46, techniqueVsSpin: 42, acceleration: 42, offsideSkill: 44, legsideSkill: 46, runningBetweenWickets: 46 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 82, control: 78, variation: 72, deathBowling: 72, lineDiscipline: 78, pressureHandling: 74 },
+  },
+  nz22: {
+    id: "nz22", name: "Ben Sears", shortName: "B Sears", role: "bowler",
+    batting: { power: 36, temperament: 44, techniqueVsPace: 32, techniqueVsSpin: 28, acceleration: 30, offsideSkill: 30, legsideSkill: 34, runningBetweenWickets: 36 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 78, control: 74, variation: 70, deathBowling: 74, lineDiscipline: 72, pressureHandling: 68 },
+  },
+  nz23: {
+    id: "nz23", name: "Blair Tickner", shortName: "B Tickner", role: "bowler",
+    batting: { power: 34, temperament: 42, techniqueVsPace: 30, techniqueVsSpin: 26, acceleration: 28, offsideSkill: 28, legsideSkill: 32, runningBetweenWickets: 34 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 76, control: 72, variation: 66, deathBowling: 70, lineDiscipline: 70, pressureHandling: 66 },
+  },
+  nz24: {
+    id: "nz24", name: "Jacob Duffy", shortName: "J Duffy", role: "bowler",
+    batting: { power: 36, temperament: 44, techniqueVsPace: 32, techniqueVsSpin: 28, acceleration: 30, offsideSkill: 28, legsideSkill: 30, runningBetweenWickets: 34 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 74, control: 72, variation: 66, deathBowling: 68, lineDiscipline: 72, pressureHandling: 66 },
+  },
+  nz25: {
+    id: "nz25", name: "Dane Cleaver", shortName: "D Cleaver", role: "wicket-keeper",
+    batting: { power: 72, temperament: 68, techniqueVsPace: 70, techniqueVsSpin: 66, acceleration: 68, offsideSkill: 68, legsideSkill: 68, runningBetweenWickets: 70 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 5, control: 8, variation: 5, deathBowling: 5, lineDiscipline: 5, pressureHandling: 8 },
+  },
+  nz26: {
+    id: "nz26", name: "Cole McConchie", shortName: "C McConchie", role: "all-rounder",
+    batting: { power: 64, temperament: 70, techniqueVsPace: 66, techniqueVsSpin: 68, acceleration: 60, offsideSkill: 64, legsideSkill: 62, runningBetweenWickets: 68 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 62, control: 60, variation: 62, deathBowling: 52, lineDiscipline: 62, pressureHandling: 58 },
+  },
+  nz27: {
+    id: "nz27", name: "Tom Bruce", shortName: "T Bruce", role: "batsman",
+    batting: { power: 70, temperament: 70, techniqueVsPace: 68, techniqueVsSpin: 70, acceleration: 66, offsideSkill: 66, legsideSkill: 68, runningBetweenWickets: 70 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  nz28: {
+    id: "nz28", name: "Doug Bracewell", shortName: "D Bracewell", role: "all-rounder",
+    batting: { power: 52, temperament: 56, techniqueVsPace: 50, techniqueVsSpin: 46, acceleration: 48, offsideSkill: 48, legsideSkill: 50, runningBetweenWickets: 52 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 72, control: 68, variation: 62, deathBowling: 66, lineDiscipline: 66, pressureHandling: 64 },
+  },
+  nz29: {
+    id: "nz29", name: "Cam Fletcher", shortName: "C Fletcher", role: "wicket-keeper",
+    batting: { power: 66, temperament: 68, techniqueVsPace: 68, techniqueVsSpin: 64, acceleration: 62, offsideSkill: 64, legsideSkill: 64, runningBetweenWickets: 68 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 5, control: 8, variation: 5, deathBowling: 5, lineDiscipline: 5, pressureHandling: 8 },
+  },
+  nz30: {
+    id: "nz30", name: "Michael Rippon", shortName: "M Rippon", role: "all-rounder",
+    batting: { power: 58, temperament: 64, techniqueVsPace: 56, techniqueVsSpin: 60, acceleration: 54, offsideSkill: 56, legsideSkill: 56, runningBetweenWickets: 62 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 68, control: 68, variation: 70, deathBowling: 58, lineDiscipline: 68, pressureHandling: 62 },
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // WEST INDIES extended squad  (wi16 – wi30)
+  // ─────────────────────────────────────────────────────────────────────────
+  wi16: {
+    id: "wi16", name: "Kraigg Brathwaite", shortName: "K Brathwaite", role: "batsman",
+    batting: { power: 58, temperament: 86, techniqueVsPace: 82, techniqueVsSpin: 80, acceleration: 52, offsideSkill: 78, legsideSkill: 68, runningBetweenWickets: 80 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 40, control: 42, variation: 38, deathBowling: 32, lineDiscipline: 42, pressureHandling: 44 },
+  },
+  wi17: {
+    id: "wi17", name: "Tagenarine Chanderpaul", shortName: "T Chanderpaul", role: "batsman",
+    batting: { power: 60, temperament: 82, techniqueVsPace: 80, techniqueVsSpin: 78, acceleration: 56, offsideSkill: 74, legsideSkill: 68, runningBetweenWickets: 80 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  wi18: {
+    id: "wi18", name: "Mikyle Louis", shortName: "M Louis", role: "batsman",
+    batting: { power: 64, temperament: 72, techniqueVsPace: 72, techniqueVsSpin: 68, acceleration: 60, offsideSkill: 70, legsideSkill: 66, runningBetweenWickets: 72 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  wi19: {
+    id: "wi19", name: "Roston Chase", shortName: "R Chase", role: "all-rounder",
+    batting: { power: 60, temperament: 74, techniqueVsPace: 68, techniqueVsSpin: 72, acceleration: 56, offsideSkill: 64, legsideSkill: 62, runningBetweenWickets: 70 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 72, control: 72, variation: 70, deathBowling: 56, lineDiscipline: 74, pressureHandling: 68 },
+  },
+  wi20: {
+    id: "wi20", name: "Alick Athanaze", shortName: "A Athanaze", role: "batsman",
+    batting: { power: 70, temperament: 70, techniqueVsPace: 70, techniqueVsSpin: 68, acceleration: 68, offsideSkill: 68, legsideSkill: 68, runningBetweenWickets: 70 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  wi21: {
+    id: "wi21", name: "Kemar Roach", shortName: "K Roach", role: "bowler",
+    batting: { power: 40, temperament: 46, techniqueVsPace: 36, techniqueVsSpin: 32, acceleration: 34, offsideSkill: 32, legsideSkill: 36, runningBetweenWickets: 36 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 80, control: 78, variation: 70, deathBowling: 70, lineDiscipline: 80, pressureHandling: 76 },
+  },
+  wi22: {
+    id: "wi22", name: "Jayden Seales", shortName: "J Seales", role: "bowler",
+    batting: { power: 38, temperament: 44, techniqueVsPace: 34, techniqueVsSpin: 30, acceleration: 32, offsideSkill: 30, legsideSkill: 34, runningBetweenWickets: 34 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 78, control: 74, variation: 70, deathBowling: 70, lineDiscipline: 74, pressureHandling: 70 },
+  },
+  wi23: {
+    id: "wi23", name: "Anderson Phillip", shortName: "A Phillip", role: "bowler",
+    batting: { power: 40, temperament: 46, techniqueVsPace: 36, techniqueVsSpin: 32, acceleration: 34, offsideSkill: 32, legsideSkill: 36, runningBetweenWickets: 36 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 76, control: 72, variation: 68, deathBowling: 70, lineDiscipline: 70, pressureHandling: 66 },
+  },
+  wi24: {
+    id: "wi24", name: "Jomel Warrican", shortName: "J Warrican", role: "bowler",
+    batting: { power: 36, temperament: 46, techniqueVsPace: 32, techniqueVsSpin: 36, acceleration: 30, offsideSkill: 30, legsideSkill: 32, runningBetweenWickets: 36 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 76, control: 74, variation: 72, deathBowling: 60, lineDiscipline: 76, pressureHandling: 68 },
+  },
+  wi25: {
+    id: "wi25", name: "Yannic Cariah", shortName: "Y Cariah", role: "all-rounder",
+    batting: { power: 58, temperament: 64, techniqueVsPace: 58, techniqueVsSpin: 62, acceleration: 54, offsideSkill: 56, legsideSkill: 56, runningBetweenWickets: 62 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 66, control: 62, variation: 68, deathBowling: 52, lineDiscipline: 62, pressureHandling: 60 },
+  },
+  wi26: {
+    id: "wi26", name: "Rahkeem Cornwall", shortName: "R Cornwall", role: "all-rounder",
+    batting: { power: 70, temperament: 62, techniqueVsPace: 60, techniqueVsSpin: 62, acceleration: 64, offsideSkill: 58, legsideSkill: 62, runningBetweenWickets: 60 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 70, control: 68, variation: 68, deathBowling: 58, lineDiscipline: 70, pressureHandling: 62 },
+  },
+  wi27: {
+    id: "wi27", name: "Justin Greaves", shortName: "J Greaves", role: "all-rounder",
+    batting: { power: 68, temperament: 68, techniqueVsPace: 66, techniqueVsSpin: 66, acceleration: 64, offsideSkill: 64, legsideSkill: 66, runningBetweenWickets: 68 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 62, control: 60, variation: 56, deathBowling: 60, lineDiscipline: 58, pressureHandling: 58 },
+  },
+  wi28: {
+    id: "wi28", name: "Matthew Forde", shortName: "M Forde", role: "bowler",
+    batting: { power: 38, temperament: 44, techniqueVsPace: 34, techniqueVsSpin: 30, acceleration: 32, offsideSkill: 30, legsideSkill: 34, runningBetweenWickets: 34 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 74, control: 70, variation: 66, deathBowling: 68, lineDiscipline: 68, pressureHandling: 64 },
+  },
+  wi29: {
+    id: "wi29", name: "Kavem Hodge", shortName: "K Hodge", role: "wicket-keeper",
+    batting: { power: 68, temperament: 68, techniqueVsPace: 68, techniqueVsSpin: 64, acceleration: 64, offsideSkill: 66, legsideSkill: 64, runningBetweenWickets: 68 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 5, control: 8, variation: 5, deathBowling: 5, lineDiscipline: 5, pressureHandling: 8 },
+  },
+  wi30: {
+    id: "wi30", name: "Jeremy Solozano", shortName: "J Solozano", role: "batsman",
+    batting: { power: 64, temperament: 68, techniqueVsPace: 66, techniqueVsSpin: 64, acceleration: 60, offsideSkill: 64, legsideSkill: 62, runningBetweenWickets: 66 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SRI LANKA extended squad  (sl16 – sl30)
+  // ─────────────────────────────────────────────────────────────────────────
+  sl16: {
+    id: "sl16", name: "Dinesh Chandimal", shortName: "D Chandimal", role: "wicket-keeper",
+    batting: { power: 66, temperament: 82, techniqueVsPace: 80, techniqueVsSpin: 80, acceleration: 60, offsideSkill: 76, legsideSkill: 72, runningBetweenWickets: 78 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 5, control: 8, variation: 5, deathBowling: 5, lineDiscipline: 5, pressureHandling: 8 },
+  },
+  sl17: {
+    id: "sl17", name: "Angelo Mathews", shortName: "A Mathews", role: "all-rounder",
+    batting: { power: 66, temperament: 86, techniqueVsPace: 84, techniqueVsSpin: 82, acceleration: 58, offsideSkill: 78, legsideSkill: 72, runningBetweenWickets: 80 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 62, control: 60, variation: 54, deathBowling: 54, lineDiscipline: 60, pressureHandling: 62 },
+  },
+  sl18: {
+    id: "sl18", name: "Dimuth Karunaratne", shortName: "D Karunaratne", role: "batsman",
+    batting: { power: 60, temperament: 88, techniqueVsPace: 86, techniqueVsSpin: 84, acceleration: 54, offsideSkill: 80, legsideSkill: 68, runningBetweenWickets: 82 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 10, control: 12, variation: 8, deathBowling: 5, lineDiscipline: 10, pressureHandling: 12 },
+  },
+  sl19: {
+    id: "sl19", name: "Oshada Fernando", shortName: "O Fernando", role: "batsman",
+    batting: { power: 64, temperament: 78, techniqueVsPace: 78, techniqueVsSpin: 74, acceleration: 60, offsideSkill: 76, legsideSkill: 68, runningBetweenWickets: 76 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 8, control: 10, variation: 6, deathBowling: 5, lineDiscipline: 8, pressureHandling: 10 },
+  },
+  sl20: {
+    id: "sl20", name: "Kamindu Mendis", shortName: "Kamindu Mendis", role: "all-rounder",
+    batting: { power: 68, temperament: 78, techniqueVsPace: 76, techniqueVsSpin: 80, acceleration: 66, offsideSkill: 72, legsideSkill: 70, runningBetweenWickets: 74 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 72, control: 70, variation: 74, deathBowling: 58, lineDiscipline: 72, pressureHandling: 68 },
+  },
+  sl21: {
+    id: "sl21", name: "Jeffrey Vandersay", shortName: "J Vandersay", role: "bowler",
+    batting: { power: 38, temperament: 46, techniqueVsPace: 34, techniqueVsSpin: 38, acceleration: 32, offsideSkill: 32, legsideSkill: 34, runningBetweenWickets: 36 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 80, control: 74, variation: 82, deathBowling: 64, lineDiscipline: 74, pressureHandling: 70 },
+  },
+  sl22: {
+    id: "sl22", name: "Vishwa Fernando", shortName: "V Fernando", role: "bowler",
+    batting: { power: 38, temperament: 44, techniqueVsPace: 34, techniqueVsSpin: 30, acceleration: 32, offsideSkill: 30, legsideSkill: 34, runningBetweenWickets: 34 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 76, control: 72, variation: 68, deathBowling: 68, lineDiscipline: 72, pressureHandling: 68 },
+  },
+  sl23: {
+    id: "sl23", name: "Asitha Fernando", shortName: "Asitha Fernando", role: "bowler",
+    batting: { power: 40, temperament: 46, techniqueVsPace: 36, techniqueVsSpin: 32, acceleration: 34, offsideSkill: 32, legsideSkill: 36, runningBetweenWickets: 36 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 80, control: 76, variation: 70, deathBowling: 70, lineDiscipline: 76, pressureHandling: 72 },
+  },
+  sl24: {
+    id: "sl24", name: "Lahiru Kumara", shortName: "L Kumara", role: "bowler",
+    batting: { power: 38, temperament: 44, techniqueVsPace: 34, techniqueVsSpin: 30, acceleration: 32, offsideSkill: 30, legsideSkill: 34, runningBetweenWickets: 34 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 78, control: 70, variation: 68, deathBowling: 72, lineDiscipline: 70, pressureHandling: 68 },
+  },
+  sl25: {
+    id: "sl25", name: "Prabath Jayasuriya", shortName: "P Jayasuriya", role: "bowler",
+    batting: { power: 36, temperament: 44, techniqueVsPace: 32, techniqueVsSpin: 36, acceleration: 30, offsideSkill: 30, legsideSkill: 32, runningBetweenWickets: 34 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 84, control: 80, variation: 80, deathBowling: 66, lineDiscipline: 82, pressureHandling: 76 },
+  },
+  sl26: {
+    id: "sl26", name: "Ramesh Mendis", shortName: "Ramesh Mendis", role: "all-rounder",
+    batting: { power: 60, temperament: 66, techniqueVsPace: 60, techniqueVsSpin: 66, acceleration: 56, offsideSkill: 58, legsideSkill: 58, runningBetweenWickets: 62 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 70, control: 70, variation: 72, deathBowling: 56, lineDiscipline: 72, pressureHandling: 64 },
+  },
+  sl27: {
+    id: "sl27", name: "Niroshan Dickwella", shortName: "N Dickwella", role: "wicket-keeper",
+    batting: { power: 74, temperament: 64, techniqueVsPace: 72, techniqueVsSpin: 68, acceleration: 72, offsideSkill: 72, legsideSkill: 72, runningBetweenWickets: 70 },
+    bowling: { bowlerType: BowlerType.Spin, mainSkill: 5, control: 8, variation: 5, deathBowling: 5, lineDiscipline: 5, pressureHandling: 8 },
+  },
+  sl28: {
+    id: "sl28", name: "Chamindu Wickramasinghe", shortName: "C Wickramasinghe", role: "bowler",
+    batting: { power: 36, temperament: 42, techniqueVsPace: 32, techniqueVsSpin: 28, acceleration: 30, offsideSkill: 28, legsideSkill: 30, runningBetweenWickets: 32 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 74, control: 70, variation: 66, deathBowling: 66, lineDiscipline: 68, pressureHandling: 64 },
+  },
+  sl29: {
+    id: "sl29", name: "Eshan Malinga", shortName: "E Malinga", role: "bowler",
+    batting: { power: 36, temperament: 42, techniqueVsPace: 32, techniqueVsSpin: 28, acceleration: 30, offsideSkill: 28, legsideSkill: 30, runningBetweenWickets: 32 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 72, control: 68, variation: 64, deathBowling: 64, lineDiscipline: 66, pressureHandling: 62 },
+  },
+  sl30: {
+    id: "sl30", name: "Milan Rathnayake", shortName: "M Rathnayake", role: "bowler",
+    batting: { power: 36, temperament: 42, techniqueVsPace: 32, techniqueVsSpin: 28, acceleration: 28, offsideSkill: 28, legsideSkill: 30, runningBetweenWickets: 30 },
+    bowling: { bowlerType: BowlerType.Pace, mainSkill: 70, control: 68, variation: 62, deathBowling: 62, lineDiscipline: 66, pressureHandling: 60 },
+  },
+};
+
+/**
+ * Batting position lookup for every player.
+ * opener=opens innings, top-order=#3-4, middle-order=#5-7, lower-order=#8-9, tailender=#10-11
+ */
+export const BATTING_POSITIONS: Record<string, BattingPosition> = {
+  // India
+  t1:"top-order", t2:"opener",      t3:"middle-order", t4:"middle-order", t5:"top-order",
+  t6:"opener",    t7:"middle-order", t8:"lower-order",  t9:"middle-order", t10:"lower-order",
+  t11:"tailender",t12:"tailender",  t13:"tailender",   t14:"tailender",   t15:"tailender",
+  t16:"opener",   t17:"top-order",  t18:"opener",      t19:"top-order",   t20:"opener",
+  t21:"middle-order",t22:"lower-order",t23:"lower-order",t24:"top-order", t25:"top-order",
+  t26:"tailender",t27:"tailender",  t28:"tailender",   t29:"lower-order", t30:"lower-order",
+  // Pakistan
+  s1:"top-order", s2:"opener",      s3:"opener",       s4:"opener",       s5:"middle-order",
+  s6:"middle-order",s7:"middle-order",s8:"lower-order",s9:"lower-order",  s10:"lower-order",
+  s11:"lower-order",s12:"tailender",s13:"tailender",   s14:"tailender",   s15:"tailender",
+  s16:"opener",   s17:"opener",     s18:"opener",      s19:"top-order",   s20:"opener",
+  s21:"middle-order",s22:"tailender",s23:"tailender",  s24:"tailender",   s25:"lower-order",
+  s26:"middle-order",s27:"middle-order",s28:"top-order",s29:"lower-order",s30:"middle-order",
+  // England
+  e1:"opener",    e2:"top-order",   e3:"opener",       e4:"top-order",    e5:"top-order",
+  e6:"middle-order",e7:"middle-order",e8:"lower-order",e9:"lower-order",  e10:"tailender",
+  e11:"tailender",e12:"tailender",  e13:"tailender",   e14:"lower-order", e15:"tailender",
+  e16:"opener",   e17:"top-order",  e18:"top-order",   e19:"middle-order",e20:"middle-order",
+  e21:"lower-order",e22:"tailender",e23:"tailender",   e24:"tailender",   e25:"tailender",
+  e26:"top-order",e27:"top-order",  e28:"middle-order",e29:"tailender",   e30:"top-order",
+  // Australia
+  a1:"opener",    a2:"opener",      a3:"middle-order", a4:"middle-order", a5:"middle-order",
+  a6:"middle-order",a7:"middle-order",a8:"middle-order",a9:"middle-order",a10:"lower-order",
+  a11:"tailender",a12:"tailender",  a13:"tailender",   a14:"tailender",   a15:"tailender",
+  a16:"top-order",a17:"top-order",  a18:"opener",      a19:"lower-order", a20:"tailender",
+  a21:"tailender",a22:"opener",     a23:"lower-order", a24:"lower-order", a25:"middle-order",
+  a26:"tailender",a27:"lower-order",a28:"tailender",   a29:"top-order",   a30:"middle-order",
+  // South Africa
+  sa1:"opener",   sa2:"middle-order",sa3:"opener",     sa4:"top-order",   sa5:"top-order",
+  sa6:"opener",   sa7:"middle-order",sa8:"middle-order",sa9:"lower-order",sa10:"lower-order",
+  sa11:"tailender",sa12:"tailender",sa13:"tailender",  sa14:"tailender",  sa15:"tailender",
+  sa16:"opener",  sa17:"top-order", sa18:"opener",     sa19:"lower-order",sa20:"top-order",
+  sa21:"tailender",sa22:"tailender",sa23:"lower-order",sa24:"lower-order",sa25:"top-order",
+  sa26:"opener",  sa27:"tailender", sa28:"tailender",  sa29:"lower-order",sa30:"tailender",
+  // New Zealand
+  nz1:"opener",   nz2:"opener",     nz3:"top-order",   nz4:"top-order",   nz5:"top-order",
+  nz6:"middle-order",nz7:"opener",  nz8:"middle-order",nz9:"lower-order", nz10:"tailender",
+  nz11:"tailender",nz12:"tailender",nz13:"tailender",  nz14:"tailender",  nz15:"tailender",
+  nz16:"top-order",nz17:"middle-order",nz18:"middle-order",nz19:"top-order",nz20:"tailender",
+  nz21:"lower-order",nz22:"tailender",nz23:"tailender",nz24:"tailender",  nz25:"lower-order",
+  nz26:"lower-order",nz27:"middle-order",nz28:"lower-order",nz29:"lower-order",nz30:"lower-order",
+  // West Indies
+  wi1:"middle-order",wi2:"top-order",wi3:"opener",     wi4:"opener",      wi5:"opener",
+  wi6:"middle-order",wi7:"middle-order",wi8:"lower-order",wi9:"top-order",wi10:"lower-order",
+  wi11:"tailender",wi12:"tailender",wi13:"tailender",  wi14:"tailender",  wi15:"tailender",
+  wi16:"opener",  wi17:"opener",    wi18:"opener",     wi19:"top-order",  wi20:"middle-order",
+  wi21:"tailender",wi22:"tailender",wi23:"tailender",  wi24:"tailender",  wi25:"lower-order",
+  wi26:"lower-order",wi27:"middle-order",wi28:"tailender",wi29:"top-order",wi30:"opener",
+  // Sri Lanka
+  sl1:"opener",   sl2:"opener",     sl3:"opener",      sl4:"opener",      sl5:"top-order",
+  sl6:"middle-order",sl7:"middle-order",sl8:"top-order",sl9:"middle-order",sl10:"middle-order",
+  sl11:"tailender",sl12:"tailender",sl13:"tailender",  sl14:"tailender",  sl15:"tailender",
+  sl16:"top-order",sl17:"top-order",sl18:"opener",     sl19:"top-order",  sl20:"top-order",
+  sl21:"tailender",sl22:"tailender",sl23:"tailender",  sl24:"tailender",  sl25:"tailender",
+  sl26:"tailender",sl27:"opener",   sl28:"tailender",  sl29:"tailender",  sl30:"tailender",
 };

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useGame } from "../state/gameContext";
 import { Innings, BatsmanInnings } from "../types/match";
 import { Player } from "../types/player";
-import { DismissalType, BallOutcome } from "../types/enums";
+import { DismissalType, BallOutcome, MatchFormat } from "../types/enums";
 import { getAllPlayers } from "../state/selectors";
 import { formatOvers, formatEconomy } from "../utils/format";
 
@@ -27,18 +27,57 @@ function getDismissalText(bat: BatsmanInnings, players: Player[]): string {
   }
 }
 
-function getMatchResult(first: Innings, second: Innings): { text: string; winner: string } {
-  const target = second.target ?? first.totalRuns + 1;
-  const secondTeamWon = second.totalRuns >= target;
+function getMatchResult(
+  first: Innings, second: Innings,
+  third?: Innings | null,
+  fourth?: Innings | null,
+): { text: string; winner: string } {
 
-  if (secondTeamWon) {
-    const wkLeft = 10 - second.totalWickets;
+  // ── Innings win (Test only, no 4th innings) ─────────────────────────────────
+  // Team B's single innings (inn2) exceeds team A's combined innings (inn1+inn3).
+  if (third && !fourth) {
+    const teamATotal = first.totalRuns + third.totalRuns;
+    const teamBSingle = second.totalRuns;
+    if (teamBSingle > teamATotal) {
+      const margin = teamBSingle - teamATotal;
+      return {
+        text: `won by an innings and ${margin} run${margin !== 1 ? "s" : ""}`,
+        winner: second.battingTeamName,
+      };
+    }
+    // Shouldn't normally reach here (would mean team A won by innings, which
+    // requires team A's inn1 alone to exceed team B's inn2+inn4 — can't happen
+    // when fourth is null unless match was somehow ended differently).
+    const margin = teamATotal - teamBSingle;
     return {
-      text: `won by ${wkLeft} wicket${wkLeft !== 1 ? "s" : ""}`,
-      winner: second.battingTeamName,
+      text: `won by an innings and ${margin} run${margin !== 1 ? "s" : ""}`,
+      winner: first.battingTeamName,
     };
   }
 
+  // ── Normal result (limited-overs or Test with 4th innings) ──────────────────
+  const lastBattingInnings = fourth ?? second;
+  const target = lastBattingInnings.target ?? first.totalRuns + 1;
+  const chaserWon = lastBattingInnings.totalRuns >= target;
+
+  if (chaserWon) {
+    const wkLeft = 10 - lastBattingInnings.totalWickets;
+    return {
+      text: `won by ${wkLeft} wicket${wkLeft !== 1 ? "s" : ""}`,
+      winner: lastBattingInnings.battingTeamName,
+    };
+  }
+
+  // Test 4th innings: defending team wins by runs margin
+  if (fourth) {
+    const margin = (target - 1) - fourth.totalRuns;
+    return {
+      text: `won by ${margin} run${margin !== 1 ? "s" : ""}`,
+      winner: first.battingTeamName,
+    };
+  }
+
+  // Limited-overs: first innings team wins by runs
   const diff = first.totalRuns - second.totalRuns;
   return {
     text: `won by ${diff} run${diff !== 1 ? "s" : ""}`,
@@ -48,10 +87,12 @@ function getMatchResult(first: Innings, second: Innings): { text: string; winner
 
 // ─── Innings Scorecard Component ─────────────────────────────────────────────
 
+const INNINGS_ORDINAL: Record<number, string> = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th" };
+
 interface InningsScorecardProps {
   innings: Innings;
   players: Player[];
-  inningsNum: 1 | 2;
+  inningsNum: 1 | 2 | 3 | 4;
 }
 
 function InningsScorecard({ innings, players, inningsNum }: InningsScorecardProps) {
@@ -66,7 +107,7 @@ function InningsScorecard({ innings, players, inningsNum }: InningsScorecardProp
       <div className="flex items-baseline justify-between border-b border-gray-700 pb-2">
         <div>
           <span className="text-gray-400 text-xs uppercase tracking-wider mr-2">
-            {inningsNum === 1 ? "1st" : "2nd"} Innings
+            {INNINGS_ORDINAL[inningsNum]} Innings
           </span>
           <span className="text-white font-bold text-lg">{innings.battingTeamName}</span>
         </div>
@@ -213,16 +254,24 @@ function computeMVP(
   first: Innings,
   second: Innings,
   allPlayers: Player[],
+  winner: string,
+  third?: Innings | null,
+  fourth?: Innings | null,
 ): { playerInfo: Player | undefined; statLine: string; isBat: boolean } {
-  // Best batter: highest runs across both innings
-  const allBatsmen = [...first.batsmen, ...second.batsmen];
+  const allInn = [first, second, third, fourth].filter(Boolean) as Innings[];
+  // Only consider innings where the winning team batted / bowled
+  const winnerBattingInnings = allInn.filter(i => i.battingTeamName === winner);
+  const winnerBowlingInnings = allInn.filter(i => i.bowlingTeamName === winner);
+
+  // Best batter from winning team
+  const allBatsmen = winnerBattingInnings.flatMap(i => i.batsmen);
   const topBat = [...allBatsmen].sort((a, b) => b.runs - a.runs)[0];
   const batScore = topBat
     ? topBat.runs + topBat.sixes * 4 + topBat.fours * 2 + (!topBat.isOut ? 15 : 0)
     : 0;
 
-  // Best bowler: most wickets (tiebreak: fewest runs)
-  const allBowlers = [...first.bowlers, ...second.bowlers];
+  // Best bowler from winning team (they bowl in opposition batting innings)
+  const allBowlers = winnerBowlingInnings.flatMap(i => i.bowlers);
   const topBowl = [...allBowlers].sort((a, b) =>
     b.wickets !== a.wickets ? b.wickets - a.wickets : a.runsConceded - b.runsConceded
   )[0];
@@ -258,9 +307,10 @@ function computeMVP(
 
 // ─── Tactical Summary ────────────────────────────────────────────────────────
 
-function buildTacticalSummary(first: Innings, second: Innings): string[] {
+function buildTacticalSummary(first: Innings, second: Innings, third?: Innings | null, fourth?: Innings | null): string[] {
   const summaries: string[] = [];
-  const allEvents = [...first.allEvents, ...second.allEvents];
+  const extra = [third, fourth].filter(Boolean) as Innings[];
+  const allEvents = [...first.allEvents, ...second.allEvents, ...extra.flatMap(i => i.allEvents)];
 
   const attackingBoundaries = allEvents.filter(
     (e) => e.fieldType === "attacking" && (e.outcome === BallOutcome.Four || e.outcome === BallOutcome.Six)
@@ -294,14 +344,14 @@ function buildTacticalSummary(first: Innings, second: Innings): string[] {
   }
 
   // Top scorer
-  const allBatsmen = [...first.batsmen, ...second.batsmen];
-  const topScorer = allBatsmen.reduce((a, b) => (b.runs > a.runs ? b : a), allBatsmen[0]);
+  const allBatsmen2 = [...first.batsmen, ...second.batsmen, ...extra.flatMap(i => i.batsmen)];
+  const topScorer = allBatsmen2.reduce((a, b) => (b.runs > a.runs ? b : a), allBatsmen2[0]);
   if (topScorer && topScorer.runs >= 20) {
     summaries.push(`Player of the match candidate: top score of ${topScorer.runs} runs off ${topScorer.balls} balls.`);
   }
 
   // Top bowler
-  const allBowlers = [...first.bowlers, ...second.bowlers];
+  const allBowlers = [...first.bowlers, ...second.bowlers, ...extra.flatMap(i => i.bowlers)];
   const topBowler = allBowlers.reduce((a, b) => (b.wickets > a.wickets ? b : a), allBowlers[0]);
   if (topBowler && topBowler.wickets >= 2) {
     const balls = topBowler.overs * 6 + topBowler.ballsInCurrentOver;
@@ -320,10 +370,14 @@ function buildTacticalSummary(first: Innings, second: Innings): string[] {
 interface ResultHeaderProps {
   first: Innings;
   second: Innings;
+  third?: Innings | null;
+  fourth?: Innings | null;
 }
 
-function ResultHeader({ first, second }: ResultHeaderProps) {
-  const { text, winner } = getMatchResult(first, second);
+function ResultHeader({ first, second, third, fourth }: ResultHeaderProps) {
+  const { text, winner } = getMatchResult(first, second, third, fourth);
+  const isTest = !!third;
+
   return (
     <div className="text-center py-6 px-4 border-b border-gray-800">
       <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Match Result</p>
@@ -332,31 +386,49 @@ function ResultHeader({ first, second }: ResultHeaderProps) {
       </h1>
       <p className="text-lg font-semibold text-yellow-400">{text}</p>
 
-      {/* Mini score summary */}
-      <div className="flex justify-center gap-8 mt-4">
-        <div className="text-center">
-          <p className="text-xs text-gray-500">{first.battingTeamName}</p>
-          <p className="text-xl font-bold text-white tabular-nums">
-            {first.totalRuns}/{first.totalWickets}
-          </p>
-          <p className="text-xs text-gray-500">
-            ({first.totalOvers}.{first.ballsInCurrentOver} ov)
-          </p>
+      {isTest ? (
+        /* Test: two-column aggregate scores */
+        <div className="flex justify-center gap-6 mt-4">
+          {[{ team: first.battingTeamName, inn1: first, inn2: third },
+            { team: second.battingTeamName, inn1: second, inn2: fourth ?? second }]
+            .map(({ team, inn1, inn2 }, i) => (
+              <div key={i} className="text-center">
+                <p className="text-xs text-gray-500 mb-1">{team}</p>
+                <p className="text-base font-bold text-white tabular-nums">
+                  {inn1.totalRuns}/{inn1.totalWickets}
+                  <span className="text-gray-500 text-xs"> & </span>
+                  {inn2 !== second ? `${inn2.totalRuns}/${inn2.totalWickets}` : "—"}
+                </p>
+              </div>
+            ))}
         </div>
-        <div className="text-gray-600 text-2xl font-light self-center">vs</div>
-        <div className="text-center">
-          <p className="text-xs text-gray-500">{second.battingTeamName}</p>
-          <p className="text-xl font-bold text-white tabular-nums">
-            {second.totalRuns}/{second.totalWickets}
-          </p>
-          <p className="text-xs text-gray-500">
-            ({second.totalOvers}.{second.ballsInCurrentOver} ov)
-          </p>
-          {second.target && (
-            <p className="text-xs text-yellow-500">Target: {second.target}</p>
-          )}
+      ) : (
+        /* Limited-overs: side-by-side single innings */
+        <div className="flex justify-center gap-8 mt-4">
+          <div className="text-center">
+            <p className="text-xs text-gray-500">{first.battingTeamName}</p>
+            <p className="text-xl font-bold text-white tabular-nums">
+              {first.totalRuns}/{first.totalWickets}
+            </p>
+            <p className="text-xs text-gray-500">
+              ({first.totalOvers}.{first.ballsInCurrentOver} ov)
+            </p>
+          </div>
+          <div className="text-gray-600 text-2xl font-light self-center">vs</div>
+          <div className="text-center">
+            <p className="text-xs text-gray-500">{second.battingTeamName}</p>
+            <p className="text-xl font-bold text-white tabular-nums">
+              {second.totalRuns}/{second.totalWickets}
+            </p>
+            <p className="text-xs text-gray-500">
+              ({second.totalOvers}.{second.ballsInCurrentOver} ov)
+            </p>
+            {second.target && (
+              <p className="text-xs text-yellow-500">Target: {second.target}</p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -365,21 +437,120 @@ function ResultHeader({ first, second }: ResultHeaderProps) {
 
 export function FinalScorecardScreen() {
   const { state, dispatch } = useGame();
-  const [activeTab, setActiveTab] = useState<1 | 2>(1);
+  const isTest = state.format === MatchFormat.Test;
+  const [activeTab, setActiveTab] = useState<1 | 2 | 3 | 4>(1);
+  const [showMOTM, setShowMOTM] = useState(true);
 
-  const first = state.firstInnings;
+  const first  = state.firstInnings;
   const second = state.secondInnings;
+  const third  = state.thirdInnings;
+  const fourth = state.fourthInnings;
   const allPlayers = getAllPlayers(state);
 
   if (!first || !second) return null;
 
-  const tactics = buildTacticalSummary(first, second);
-  const activeInnings = activeTab === 1 ? first : second;
-  const mvp = computeMVP(first, second, allPlayers);
+  const allInnings: { num: 1 | 2 | 3 | 4; inn: Innings }[] = [
+    { num: 1, inn: first },
+    { num: 2, inn: second },
+    ...(third  ? [{ num: 3 as const, inn: third  }] : []),
+    ...(fourth ? [{ num: 4 as const, inn: fourth }] : []),
+  ];
+
+  const { text: resultText, winner } = getMatchResult(first, second, third, fourth);
+  const tactics = buildTacticalSummary(first, second, third, fourth);
+  const activeInnings = allInnings.find(i => i.num === activeTab)?.inn ?? first;
+  const mvp = computeMVP(first, second, allPlayers, winner, third, fourth);
+
+  // ── MOTM splash ──────────────────────────────────────────────────────────
+  if (showMOTM) {
+    return (
+      <div
+        style={{
+          position: "fixed", inset: 0,
+          background: "#050a05",
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          padding: "32px 24px",
+          textAlign: "center",
+          gap: 0,
+        }}
+      >
+        {/* Ambient glow */}
+        <div style={{
+          position: "absolute", inset: 0, zIndex: 0,
+          background: "radial-gradient(ellipse at 50% 45%, rgba(251,191,36,0.14) 0%, transparent 68%)",
+          pointerEvents: "none",
+        }} />
+
+        <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 340 }}>
+          {/* Match result chip */}
+          <div style={{
+            display: "inline-block",
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.2em",
+            textTransform: "uppercase", color: "#fbbf24",
+            background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)",
+            borderRadius: 20, padding: "4px 14px", marginBottom: 28,
+          }}>
+            {winner} · {resultText}
+          </div>
+
+          {/* Trophy */}
+          <div style={{ fontSize: 64, lineHeight: 1, marginBottom: 20 }}>🏅</div>
+
+          {/* Label */}
+          <p style={{
+            fontSize: 10, fontWeight: 800, letterSpacing: "0.35em",
+            textTransform: "uppercase", color: "rgba(251,191,36,0.6)",
+            marginBottom: 10,
+          }}>
+            Man of the Match
+          </p>
+
+          {/* Player name */}
+          <h1 style={{
+            fontSize: 36, fontWeight: 900, color: "white",
+            lineHeight: 1.05, letterSpacing: "-0.5px", marginBottom: 8,
+          }}>
+            {mvp.playerInfo?.name ?? "—"}
+          </h1>
+
+          {/* Role badge */}
+          <span style={{
+            display: "inline-block",
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            background: mvp.isBat ? "rgba(59,130,246,0.18)" : "rgba(239,68,68,0.18)",
+            color: mvp.isBat ? "#93c5fd" : "#fca5a5",
+            border: `1px solid ${mvp.isBat ? "rgba(59,130,246,0.35)" : "rgba(239,68,68,0.35)"}`,
+            borderRadius: 20, padding: "3px 12px", marginBottom: 16,
+          }}>
+            {mvp.isBat ? "Batting" : "Bowling"}
+          </span>
+
+          {/* Stat line */}
+          <p style={{ fontSize: 22, fontWeight: 800, color: "#fcd34d", marginBottom: 36 }}>
+            {mvp.statLine}
+          </p>
+
+          {/* CTA */}
+          <button
+            onClick={() => setShowMOTM(false)}
+            style={{
+              width: "100%", padding: "16px 0",
+              background: "#fbbf24", color: "#09090b",
+              borderRadius: 14, fontSize: 14, fontWeight: 800,
+              letterSpacing: "0.05em", border: "none",
+            }}
+          >
+            View Full Scorecard →
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen text-white flex flex-col overflow-hidden" style={{ background: "#030a04" }}>
-      {/* BG image — subtle, only visible behind header */}
       <img
         src="/premium_photo-1679917489673-b952cee5857a.avif"
         alt="" aria-hidden
@@ -387,105 +558,76 @@ export function FinalScorecardScreen() {
         style={{ zIndex: 0, opacity: 0.18 }}
       />
       <div className="relative flex flex-col flex-1" style={{ zIndex: 1 }}>
-      {/* Result header */}
-      <ResultHeader first={first} second={second} />
+        {/* Result header */}
+        <ResultHeader first={first} second={second} third={third} fourth={fourth} />
 
-      {/* ── MVP / Man of the Match card ── */}
-      <div className="px-4 pt-4 pb-2 max-w-2xl mx-auto w-full">
-        <div
-          className="rounded-xl px-4 py-3.5 flex items-center gap-4"
-          style={{
-            background: "linear-gradient(135deg, rgba(251,191,36,0.13), rgba(251,191,36,0.05))",
-            border: "1px solid rgba(251,191,36,0.35)",
-          }}
-        >
-          <div
-            className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 text-[10px] font-black uppercase tracking-widest"
-            style={{ background: "rgba(251,191,36,0.2)", color: "#fbbf24" }}
-          >
-            MVP
-          </div>
-          <div className="min-w-0">
-            <p className="text-[9px] text-yellow-500 uppercase tracking-widest font-bold mb-0.5">
-              Man of the Match
-            </p>
-            <p className="text-white font-black text-base leading-tight truncate">
-              {mvp.playerInfo?.name ?? "—"}
-            </p>
-            <p className="text-yellow-300 text-xs font-medium">{mvp.statLine}</p>
-          </div>
-          <div
-            className="ml-auto shrink-0 text-[9px] font-bold uppercase px-2 py-1 rounded-full"
-            style={{
-              background: mvp.isBat ? "rgba(59,130,246,0.2)" : "rgba(239,68,68,0.2)",
-              color: mvp.isBat ? "#93c5fd" : "#fca5a5",
-            }}
-          >
-            {mvp.isBat ? "BAT" : "BOWL"}
-          </div>
-        </div>
-      </div>
-
-      {/* Innings tabs */}
-      <div className="flex border-b border-gray-800 bg-gray-900/50">
-        {([1, 2] as const).map((n) => {
-          const inn = n === 1 ? first : second;
-          return (
+        {/* Innings tabs */}
+        <div className="flex border-b border-gray-800 bg-gray-900/50">
+          {allInnings.map(({ num, inn }) => (
             <button
-              key={n}
-              onClick={() => setActiveTab(n)}
-              className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
-                activeTab === n
+              key={num}
+              onClick={() => setActiveTab(num)}
+              className={`flex-1 py-3 px-2 text-xs font-medium transition-colors ${
+                activeTab === num
                   ? "text-emerald-400 border-b-2 border-emerald-500 bg-gray-900"
                   : "text-gray-500 hover:text-gray-300"
               }`}
             >
-              {n === 1 ? "1st" : "2nd"} Innings
-              <span className="ml-2 text-xs font-normal tabular-nums text-gray-500">
-                {inn.battingTeamName} {inn.totalRuns}/{inn.totalWickets}
+              {INNINGS_ORDINAL[num]}{!isTest && " Innings"}
+              <span className="block text-[10px] font-normal text-gray-500 tabular-nums">
+                {inn.battingTeamName.split(" ").pop()} {inn.totalRuns}/{inn.totalWickets}
               </span>
             </button>
-          );
-        })}
-      </div>
-
-      {/* Scorecard content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto px-4 py-5">
-          <InningsScorecard
-            innings={activeInnings}
-            players={allPlayers}
-            inningsNum={activeTab}
-          />
+          ))}
         </div>
 
-        {/* Tactical Summary */}
-        <div className="max-w-2xl mx-auto px-4 pb-4">
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
-            <h3 className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-3">
-              Match Analysis
-            </h3>
-            <ul className="space-y-2">
-              {tactics.map((t, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
-                  <span className="text-emerald-500 mt-0.5 shrink-0">›</span>
-                  {t}
-                </li>
-              ))}
-            </ul>
+        {/* Scorecard content */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-4 py-5">
+            <InningsScorecard
+              innings={activeInnings}
+              players={allPlayers}
+              inningsNum={activeTab}
+            />
+          </div>
+
+          {/* Tactical Summary */}
+          <div className="max-w-2xl mx-auto px-4 pb-4">
+            <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+              <h3 className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-3">
+                Match Analysis
+              </h3>
+              <ul className="space-y-2">
+                {tactics.map((t, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
+                    <span className="text-emerald-500 mt-0.5 shrink-0">›</span>
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="max-w-2xl mx-auto px-4 pb-8 text-center space-y-3">
+            {state.worldCup?.activeFixtureId ? (
+              <button
+                onClick={() => dispatch({ type: "WC_RECORD_USER_RESULT" })}
+                className="w-full px-10 py-3 rounded-xl text-base font-bold transition-all active:scale-[0.97]"
+                style={{ background: "#fbbf24", color: "#09090b" }}
+              >
+                🏆 Return to Tournament
+              </button>
+            ) : (
+              <button
+                onClick={() => dispatch({ type: "GO_TO_MAIN_MENU" })}
+                className="px-10 py-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 rounded-xl text-base font-bold transition-colors shadow-lg shadow-emerald-900/40"
+              >
+                Play Again
+              </button>
+            )}
           </div>
         </div>
-
-        {/* New Game button */}
-        <div className="max-w-2xl mx-auto px-4 pb-8 text-center">
-          <button
-            onClick={() => dispatch({ type: "GO_TO_MAIN_MENU" })}
-            className="px-10 py-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 rounded-xl text-base font-bold transition-colors shadow-lg shadow-emerald-900/40"
-          >
-            Play Again
-          </button>
-        </div>
-      </div>
       </div>
     </div>
   );

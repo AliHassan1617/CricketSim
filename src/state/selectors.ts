@@ -2,7 +2,10 @@ import { Innings, BatsmanInnings, BowlerSpell, MatchState } from "../types/match
 import { Player } from "../types/player";
 
 export function getActiveInnings(state: MatchState): Innings | null {
-  return state.currentInnings === 1 ? state.firstInnings : state.secondInnings;
+  if (state.currentInnings === 1) return state.firstInnings;
+  if (state.currentInnings === 2) return state.secondInnings;
+  if (state.currentInnings === 3) return state.thirdInnings;
+  return state.fourthInnings;
 }
 
 export function getCurrentBatsmanOnStrike(innings: Innings): BatsmanInnings | null {

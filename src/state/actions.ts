@@ -2,6 +2,7 @@ import { BallEvent } from "../types/match";
 import { Team } from "../types/player";
 import { BattingIntent, FieldType, MatchFormat, PitchType, SidebarTab } from "../types/enums";
 import { Stadium } from "../data/stadiums";
+import { WCFixtureResult } from "../types/worldCup";
 
 export type GameAction =
   | { type: "START_GAME" }
@@ -22,6 +23,8 @@ export type GameAction =
   | { type: "END_OVER" }
   | { type: "END_INNINGS" }
   | { type: "START_SECOND_INNINGS" }
+  | { type: "START_THIRD_INNINGS" }
+  | { type: "START_FOURTH_INNINGS" }
   | { type: "END_MATCH" }
   | { type: "SET_SIMULATING"; payload: { value: boolean } }
   | { type: "SET_FORMAT"; payload: { format: MatchFormat } }
@@ -35,4 +38,12 @@ export type GameAction =
   | { type: "SELECT_NEXT_BATSMAN"; payload: { batsmanId: string } }
   | { type: "GO_TO_MULTIPLAYER" }
   | { type: "GO_TO_MULTIPLAYER_GUEST" }
-  | { type: "GO_TO_START" };
+  | { type: "GO_TO_START" }
+  | { type: "DECLARE_INNINGS" }
+  // ── World Cup ────────────────────────────────────────────────────────────────
+  | { type: "WC_INIT" }
+  | { type: "WC_SELECT_TEAM"; payload: { teamId: string; format: string } }
+  | { type: "WC_PLAY_FIXTURE"; payload: { fixtureId: string } }
+  | { type: "WC_RECORD_USER_RESULT" }
+  | { type: "WC_RECORD_SIM_RESULT"; payload: { fixtureId: string; result: WCFixtureResult } }
+  | { type: "WC_ADVANCE_TO_KNOCKOUT" };

@@ -3,6 +3,9 @@ import { BallOutcome, GamePhase, MatchFormat, PitchType, SidebarTab } from "../t
 import { BatsmanInnings, BowlerSpell, Innings, MatchState } from "../types/match";
 import { Player, Team } from "../types/player";
 import { updateBatsmanConfidence, updateBowlerConfidence } from "../engine/confidence";
+import { getAllTeams, getTeam } from "../data/teamDb";
+import { generateGroupFixtures, generateKnockoutStubs, computeStandings } from "../utils/wcEngine";
+import { WCBatsmanPerf, WCBowlerPerf, WCFixture, WCFixtureResult, WCPhase, WorldCupState } from "../types/worldCup";
 
 export const initialState: MatchState = {
   phase: GamePhase.Start,
@@ -18,6 +21,8 @@ export const initialState: MatchState = {
   userBatsFirst: true,
   firstInnings: null,
   secondInnings: null,
+  thirdInnings: null,
+  fourthInnings: null,
   currentInnings: 1,
   needsBowlerChange: false,
   selectedPlayerId: null,
@@ -25,7 +30,63 @@ export const initialState: MatchState = {
   tacticsUnlocked: false,
   pendingBatsmanSelection: null,
   stadium: null,
+  worldCup: null,
 };
+
+/**
+ * After any WC fixture completes, apply all automatic phase transitions:
+ *   group → knockout (fill SF team IDs when all group games done)
+ *   knockout → resolve Final team IDs (when both SFs done)
+ *   → complete (when Final done)
+ * Also advances currentDay to the next pending fixture's scheduled day.
+ */
+function applyWCTransitions(
+  wc: WorldCupState,
+  fixtures: WCFixture[],
+): { fixtures: WCFixture[]; wcPhase: WCPhase; currentDay: number } {
+  let resolved = [...fixtures];
+  let wcPhase: WCPhase = wc.wcPhase;
+
+  // Group → Knockout: fill in SF team IDs when all group games complete
+  const allGroupDone = resolved.filter(f => f.stage === "group").every(f => f.status === "completed");
+  if (allGroupDone && wcPhase === "group") {
+    const standA = computeStandings(wc.groupA, resolved, "A");
+    const standB = computeStandings(wc.groupB, resolved, "B");
+    const a1 = standA[0]?.teamId ?? "";
+    const a2 = standA[1]?.teamId ?? "";
+    const b1 = standB[0]?.teamId ?? "";
+    const b2 = standB[1]?.teamId ?? "";
+    resolved = resolved.map(f => {
+      if (f.id === "sf1") return { ...f, team1Id: a1, team2Id: b2 };
+      if (f.id === "sf2") return { ...f, team1Id: b1, team2Id: a2 };
+      return f;
+    });
+    wcPhase = "knockout";
+  }
+
+  // Fill in Final team IDs once both SFs are done
+  const sf1r = resolved.find(f => f.id === "sf1" && f.status === "completed")?.result;
+  const sf2r = resolved.find(f => f.id === "sf2" && f.status === "completed")?.result;
+  if (sf1r && sf2r) {
+    resolved = resolved.map(f =>
+      f.id === "final" && !f.team1Id
+        ? { ...f, team1Id: sf1r.winnerTeamId, team2Id: sf2r.winnerTeamId }
+        : f,
+    );
+  }
+
+  // Tournament complete when Final is done
+  const finalDone = resolved.find(f => f.id === "final" && f.status === "completed");
+  if (finalDone) wcPhase = "complete";
+
+  // Advance currentDay to the next pending fixture's scheduled day
+  const nextPending = [...resolved]
+    .sort((a, b) => a.scheduledDay - b.scheduledDay)
+    .find(f => f.status === "pending");
+  const currentDay = nextPending?.scheduledDay ?? wc.currentDay;
+
+  return { fixtures: resolved, wcPhase, currentDay };
+}
 
 /**
  * Auto-select XI and batting order for the computer team.
@@ -55,16 +116,21 @@ function autoSelectTeam(team: Team): {
 
   const xiIds = xi.map((p) => p.id);
 
+  const posOrder: Record<string, number> = {
+    opener: 0, "top-order": 1, "middle-order": 2, "lower-order": 3, tailender: 4,
+  };
   const battingOrder = [...xiIds].sort((a, b) => {
     const pa = xi.find((p) => p.id === a)!;
     const pb = xi.find((p) => p.id === b)!;
-    const roleOrder: Record<string, number> = {
-      "wicket-keeper": 0,
-      batsman: 1,
-      "all-rounder": 2,
-      bowler: 3,
-    };
-    return (roleOrder[pa.role] ?? 4) - (roleOrder[pb.role] ?? 4);
+    const posDiff =
+      (posOrder[pa.battingPosition ?? "middle-order"] ?? 2) -
+      (posOrder[pb.battingPosition ?? "middle-order"] ?? 2);
+    if (posDiff !== 0) return posDiff;
+    // Within same position group, better batting stats come first
+    return (
+      (pb.batting.techniqueVsPace + pb.batting.power) -
+      (pa.batting.techniqueVsPace + pa.batting.power)
+    );
   });
 
   return { xi: xiIds, battingOrder };
@@ -123,7 +189,9 @@ function createInnings(
     wides: 0,
     noBalls: 0,
     confidence: 50,
-    maxOvers: Math.max(1, Math.round(matchOvers / 5)),
+    // Test cricket: no bowler over limit — stamina is the only constraint.
+    // Limited-overs: max overs = matchOvers / 5 (e.g. T20 = 4, T10 = 2, T5 = 1).
+    maxOvers: matchOvers >= 90 ? matchOvers : Math.max(1, Math.round(matchOvers / 5)),
   }));
 
   // allPlayers is already passed in — avoid unused-var warning
@@ -215,86 +283,40 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
       if (!state.userTeam || !state.opponentTeam) return state;
 
       const allPlayers = [...state.userTeam.players, ...state.opponentTeam.players];
-      const matchOvers = state.format === MatchFormat.T5 ? 5
-                       : state.format === MatchFormat.T20 ? 20
-                       : 10;
+      // Test: 450 = 5 days × 90 overs — no hard cap; innings end by wickets only.
+      // The 450 value propagates into isTest detection (>= 90) and bowler maxOvers.
+      const matchOvers = state.format === MatchFormat.T5   ? 5
+                       : state.format === MatchFormat.T20  ? 20
+                       : state.format === MatchFormat.ODI  ? 50
+                       : state.format === MatchFormat.Test ? 450
+                       : 10; // T10 default
 
-      if (state.currentInnings === 1) {
+      // Helper: build innings for "team A" (bats in innings 1 & 3)
+      // userBatsFirst → user is team A; otherwise opponent is team A
+      const buildInnings = (inningsNum: 1 | 2 | 3 | 4, target?: number) => {
+        const teamABats = inningsNum === 1 || inningsNum === 3;
         let battingTeam: Team;
         let bowlingTeam: Team;
         let battingOrder: string[];
         let bowlerRotation: string[];
         let isUserBatting: boolean;
 
-        if (state.userBatsFirst) {
-          // User bats — opponent bowls
-          battingTeam = state.userTeam;
-          bowlingTeam = state.opponentTeam;
+        if (state.userBatsFirst ? teamABats : !teamABats) {
+          // User bats
+          battingTeam = state.userTeam!;
+          bowlingTeam = state.opponentTeam!;
           battingOrder = state.battingOrder;
-          const oppSetup = autoSelectTeam(state.opponentTeam);
+          const oppSetup = autoSelectTeam(state.opponentTeam!);
           bowlerRotation = buildBowlerRotation(oppSetup.xi, allPlayers);
           isUserBatting = true;
         } else {
-          // Opponent bats — user bowls
-          battingTeam = state.opponentTeam;
-          bowlingTeam = state.userTeam;
-          const oppSetup = autoSelectTeam(state.opponentTeam);
+          // Opponent bats
+          battingTeam = state.opponentTeam!;
+          bowlingTeam = state.userTeam!;
+          const oppSetup = autoSelectTeam(state.opponentTeam!);
           battingOrder = oppSetup.battingOrder;
           bowlerRotation = buildBowlerRotation(state.selectedXI, allPlayers);
           isUserBatting = false;
-        }
-
-        let innings = createInnings(
-          battingTeam.id, bowlingTeam.id,
-          battingTeam.name, bowlingTeam.name,
-          isUserBatting ? [] : battingOrder,
-          bowlerRotation, allPlayers,
-          isUserBatting, matchOvers
-        );
-
-        // User batting: start with empty batsmen array — openers chosen live
-        let pendingBatsman: "openers" | "next" | null = null;
-        if (isUserBatting) {
-          innings = { ...innings, batsmen: [] };
-          pendingBatsman = "openers";
-        }
-
-        // If user is bowling, they must pick the opening bowler
-        const needsBowlerChange = !isUserBatting;
-
-        return {
-          ...state,
-          firstInnings: innings,
-          phase: GamePhase.FirstInnings,
-          needsBowlerChange,
-          pendingBatsmanSelection: pendingBatsman,
-        };
-
-      } else {
-        // Second innings — roles swap
-        const target = (state.firstInnings?.totalRuns ?? 0) + 1;
-        let battingTeam: Team;
-        let bowlingTeam: Team;
-        let battingOrder: string[];
-        let bowlerRotation: string[];
-        let isUserBatting: boolean;
-
-        if (state.userBatsFirst) {
-          // User batted first, now opponent bats — user bowls
-          battingTeam = state.opponentTeam;
-          bowlingTeam = state.userTeam;
-          const oppSetup = autoSelectTeam(state.opponentTeam);
-          battingOrder = oppSetup.battingOrder;
-          bowlerRotation = buildBowlerRotation(state.selectedXI, allPlayers);
-          isUserBatting = false;
-        } else {
-          // Opponent batted first, now user bats — opponent bowls
-          battingTeam = state.userTeam;
-          bowlingTeam = state.opponentTeam;
-          battingOrder = state.battingOrder;
-          const oppSetup = autoSelectTeam(state.opponentTeam);
-          bowlerRotation = buildBowlerRotation(oppSetup.xi, allPlayers);
-          isUserBatting = true;
         }
 
         let innings = createInnings(
@@ -305,20 +327,61 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
           isUserBatting, matchOvers, target
         );
 
-        // User batting: start with empty batsmen array — openers chosen live
-        let pendingBatsman: "openers" | "next" | null = null;
         if (isUserBatting) {
           innings = { ...innings, batsmen: [] };
-          pendingBatsman = "openers";
         }
 
-        // If user is bowling, they must pick the opening bowler
+        const pendingBatsman: "openers" | "next" | null = isUserBatting ? "openers" : null;
         const needsBowlerChange = !isUserBatting;
+        return { innings, pendingBatsman, needsBowlerChange };
+      };
 
+      if (state.currentInnings === 1) {
+        const { innings, pendingBatsman, needsBowlerChange } = buildInnings(1);
+        return {
+          ...state,
+          firstInnings: innings,
+          phase: GamePhase.FirstInnings,
+          needsBowlerChange,
+          pendingBatsmanSelection: pendingBatsman,
+        };
+
+      } else if (state.currentInnings === 2) {
+        // Test: innings 2 has NO target — both teams just bat until all out.
+        // Only innings 4 has a target (combined total of team A's two innings).
+        const target = state.format !== MatchFormat.Test
+          ? (state.firstInnings?.totalRuns ?? 0) + 1
+          : undefined;
+        const { innings, pendingBatsman, needsBowlerChange } = buildInnings(2, target);
         return {
           ...state,
           secondInnings: innings,
           phase: GamePhase.SecondInnings,
+          needsBowlerChange,
+          pendingBatsmanSelection: pendingBatsman,
+        };
+
+      } else if (state.currentInnings === 3) {
+        // 3rd innings (Test only) — team A bats again, no target
+        const { innings, pendingBatsman, needsBowlerChange } = buildInnings(3);
+        return {
+          ...state,
+          thirdInnings: innings,
+          phase: GamePhase.ThirdInnings,
+          needsBowlerChange,
+          pendingBatsmanSelection: pendingBatsman,
+        };
+
+      } else {
+        // 4th innings (Test only) — team B chases combined target
+        const teamATotal = (state.firstInnings?.totalRuns ?? 0) + (state.thirdInnings?.totalRuns ?? 0);
+        const teamBFirst  = state.secondInnings?.totalRuns ?? 0;
+        const target = teamATotal - teamBFirst + 1;
+        const { innings, pendingBatsman, needsBowlerChange } = buildInnings(4, target);
+        return {
+          ...state,
+          fourthInnings: innings,
+          phase: GamePhase.FourthInnings,
           needsBowlerChange,
           pendingBatsmanSelection: pendingBatsman,
         };
@@ -327,7 +390,10 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
 
     case "PROCESS_BALL_RESULT": {
       const { event } = action.payload;
-      const inningsKey = state.currentInnings === 1 ? "firstInnings" : "secondInnings";
+      const inningsKey = state.currentInnings === 1 ? "firstInnings"
+                       : state.currentInnings === 2 ? "secondInnings"
+                       : state.currentInnings === 3 ? "thirdInnings"
+                       : "fourthInnings";
       const innings = state[inningsKey];
       if (!innings) return state;
 
@@ -512,9 +578,13 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
       // Determine next phase
       let newPhase = state.phase;
       if (newInnings.isComplete) {
-        newPhase = state.currentInnings === 1
-          ? GamePhase.InningsSummary
-          : GamePhase.FinalScorecard;
+        if (state.currentInnings === 4) {
+          newPhase = GamePhase.FinalScorecard;
+        } else if (state.currentInnings === 2 && state.format !== MatchFormat.Test) {
+          newPhase = GamePhase.FinalScorecard;
+        } else {
+          newPhase = GamePhase.InningsSummary;
+        }
       }
 
       return {
@@ -523,11 +593,15 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
         phase: newPhase,
         needsBowlerChange: needsBowlerChange && !newInnings.isComplete,
         pendingBatsmanSelection: newInnings.isComplete ? null : pendingBatsman,
+        isSimulating: newInnings.isComplete ? false : state.isSimulating,
       };
     }
 
     case "CHANGE_BOWLER": {
-      const inningsKey = state.currentInnings === 1 ? "firstInnings" : "secondInnings";
+      const inningsKey = state.currentInnings === 1 ? "firstInnings"
+                       : state.currentInnings === 2 ? "secondInnings"
+                       : state.currentInnings === 3 ? "thirdInnings"
+                       : "fourthInnings";
       const innings = state[inningsKey];
       if (!innings) return state;
 
@@ -543,6 +617,36 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
 
     case "START_SECOND_INNINGS": {
       return { ...state, currentInnings: 2 };
+    }
+
+    case "START_THIRD_INNINGS": {
+      return { ...state, currentInnings: 3 };
+    }
+
+    case "START_FOURTH_INNINGS": {
+      return { ...state, currentInnings: 4 };
+    }
+
+    case "DECLARE_INNINGS": {
+      const inningsKey = state.currentInnings === 1 ? "firstInnings"
+                       : state.currentInnings === 2 ? "secondInnings"
+                       : state.currentInnings === 3 ? "thirdInnings"
+                       : "fourthInnings";
+      const innings = state[inningsKey];
+      if (!innings) return state;
+      const newInnings = { ...innings, isComplete: true };
+      // Same phase logic as when innings completes normally
+      const newPhase = (state.currentInnings === 4 || (state.currentInnings === 2 && state.format !== MatchFormat.Test))
+        ? GamePhase.FinalScorecard
+        : GamePhase.InningsSummary;
+      return {
+        ...state,
+        [inningsKey]: newInnings,
+        phase: newPhase,
+        needsBowlerChange: false,
+        pendingBatsmanSelection: null,
+        isSimulating: false,
+      };
     }
 
     case "SET_FORMAT": {
@@ -595,7 +699,10 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
 
     case "SELECT_OPENERS": {
       const { strikerId, nonStrikerId } = action.payload;
-      const inningsKey = state.currentInnings === 1 ? "firstInnings" : "secondInnings";
+      const inningsKey = state.currentInnings === 1 ? "firstInnings"
+                       : state.currentInnings === 2 ? "secondInnings"
+                       : state.currentInnings === 3 ? "thirdInnings"
+                       : "fourthInnings";
       const innings = state[inningsKey];
       if (!innings) return state;
 
@@ -620,7 +727,10 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
 
     case "SELECT_NEXT_BATSMAN": {
       const { batsmanId } = action.payload;
-      const inningsKey = state.currentInnings === 1 ? "firstInnings" : "secondInnings";
+      const inningsKey = state.currentInnings === 1 ? "firstInnings"
+                       : state.currentInnings === 2 ? "secondInnings"
+                       : state.currentInnings === 3 ? "thirdInnings"
+                       : "fourthInnings";
       const innings = state[inningsKey];
       if (!innings) return state;
 
@@ -648,6 +758,154 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
 
     case "RESET_GAME": {
       return { ...initialState };
+    }
+
+    // ── World Cup ────────────────────────────────────────────────────────────────
+
+    case "WC_INIT": {
+      return { ...initialState, phase: GamePhase.WCSetup, worldCup: null };
+    }
+
+    case "WC_SELECT_TEAM": {
+      const { teamId, format } = action.payload;
+      const allTeams = getAllTeams();
+      const others = allTeams.filter(t => t.id !== teamId).map(t => t.id);
+      for (let i = others.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [others[i], others[j]] = [others[j], others[i]];
+      }
+      const groupA = [teamId, ...others.slice(0, 3)];
+      const groupB = others.slice(3, 7);
+      const fixtures = [...generateGroupFixtures(groupA, groupB), ...generateKnockoutStubs()];
+      return {
+        ...initialState,
+        phase: GamePhase.WCHub,
+        worldCup: {
+          wcPhase: "group",
+          userTeamId: teamId,
+          format,
+          groupA, groupB,
+          fixtures,
+          activeFixtureId: null,
+          currentDay: 1,
+        },
+      };
+    }
+
+    case "WC_PLAY_FIXTURE": {
+      const wc = state.worldCup;
+      if (!wc) return state;
+      const fixture = wc.fixtures.find(f => f.id === action.payload.fixtureId);
+      if (!fixture) return state;
+
+      const userTeam = getTeam(wc.userTeamId);
+      const oppId = fixture.team1Id === wc.userTeamId ? fixture.team2Id : fixture.team1Id;
+      const oppTeam = getTeam(oppId);
+      if (!userTeam || !oppTeam) return state;
+
+      const wcFormat = (wc.format as MatchFormat) ?? MatchFormat.T20;
+      return {
+        ...initialState,
+        phase: GamePhase.PreMatch,
+        sidebarTab: SidebarTab.Squad,
+        format: wcFormat,
+        pitchType: PitchType.Flat,
+        userTeam,
+        opponentTeam: oppTeam,
+        worldCup: { ...wc, activeFixtureId: fixture.id },
+      };
+    }
+
+    case "WC_RECORD_USER_RESULT": {
+      const wc = state.worldCup;
+      if (!wc || !wc.activeFixtureId) return state;
+      const inn1 = state.firstInnings;
+      const inn2 = state.secondInnings;
+      if (!inn1 || !inn2) return state;
+
+      // Build player lookup from both teams
+      const playerMap = new Map<string, { shortName: string; teamId: string }>();
+      state.userTeam?.players.forEach(p => playerMap.set(p.id, { shortName: p.shortName, teamId: state.userTeam!.id }));
+      state.opponentTeam?.players.forEach(p => playerMap.set(p.id, { shortName: p.shortName, teamId: state.opponentTeam!.id }));
+
+      function extractBatting(innings: Innings): WCBatsmanPerf[] {
+        return innings.batsmen
+          .filter(b => b.balls > 0 || b.isOut)
+          .map(b => ({
+            playerId: b.playerId,
+            name: playerMap.get(b.playerId)?.shortName ?? b.playerId,
+            teamId: innings.battingTeamId,
+            runs: b.runs,
+            balls: b.balls,
+            notOut: !b.isOut,
+          }));
+      }
+
+      function extractBowling(innings: Innings): WCBowlerPerf[] {
+        return innings.bowlers
+          .filter(b => b.overs > 0 || b.ballsInCurrentOver > 0)
+          .map(b => ({
+            playerId: b.playerId,
+            name: playerMap.get(b.playerId)?.shortName ?? b.playerId,
+            teamId: innings.bowlingTeamId,
+            wickets: b.wickets,
+            runs: b.runsConceded,
+            oversFull: b.overs,
+            ballsExtra: b.ballsInCurrentOver,
+          }));
+      }
+
+      const overs1   = inn1.totalOvers + inn1.ballsInCurrentOver / 6;
+      const overs2   = inn2.totalOvers + inn2.ballsInCurrentOver / 6;
+      const allOut1  = inn1.totalWickets >= 10;
+      const allOut2  = inn2.totalWickets >= 10;
+      const won2     = inn2.totalRuns >= (inn2.target ?? inn1.totalRuns + 1);
+
+      const result: WCFixtureResult = {
+        winnerTeamId:    won2 ? inn2.battingTeamId : inn1.battingTeamId,
+        bat1TeamId:      inn1.battingTeamId,
+        bat1Runs:        inn1.totalRuns,
+        bat1Wickets:     inn1.totalWickets,
+        bat1OversUsed:   inn1.totalOvers + inn1.ballsInCurrentOver / 10,
+        bat1NrrOvers:    allOut1 ? 20 : overs1,
+        bat2TeamId:      inn2.battingTeamId,
+        bat2Runs:        inn2.totalRuns,
+        bat2Wickets:     inn2.totalWickets,
+        bat2OversUsed:   inn2.totalOvers + inn2.ballsInCurrentOver / 10,
+        bat2NrrOvers:    (won2 && !allOut2) ? overs2 : 20,
+        innings1Batting: extractBatting(inn1),
+        innings1Bowling: extractBowling(inn1),
+        innings2Batting: extractBatting(inn2),
+        innings2Bowling: extractBowling(inn2),
+      };
+
+      const updatedFixtures = wc.fixtures.map(f =>
+        f.id === wc.activeFixtureId ? { ...f, status: "completed" as const, result } : f,
+      );
+      const { fixtures: resolvedFixtures, wcPhase, currentDay } = applyWCTransitions(wc, updatedFixtures);
+
+      return {
+        ...initialState,
+        phase: GamePhase.WCHub,
+        worldCup: { ...wc, fixtures: resolvedFixtures, activeFixtureId: null, wcPhase, currentDay },
+      };
+    }
+
+    case "WC_RECORD_SIM_RESULT": {
+      const wc = state.worldCup;
+      if (!wc) return state;
+      const updatedFixtures = wc.fixtures.map(f =>
+        f.id === action.payload.fixtureId
+          ? { ...f, status: "completed" as const, result: action.payload.result }
+          : f,
+      );
+      const { fixtures, wcPhase, currentDay } = applyWCTransitions(wc, updatedFixtures);
+      return { ...state, worldCup: { ...wc, fixtures, wcPhase, currentDay } };
+    }
+
+    case "WC_ADVANCE_TO_KNOCKOUT": {
+      // No-op — knockouts now auto-advance via applyWCTransitions
+      return state;
     }
 
     default:

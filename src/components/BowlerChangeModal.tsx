@@ -6,6 +6,7 @@ interface BowlerChangeModalProps {
   availableBowlers: BowlerSpell[];
   players: Player[];
   onSelect: (bowlerId: string) => void;
+  isTest?: boolean;
 }
 
 function getPlayerInfo(players: Player[], playerId: string): Player | undefined {
@@ -24,6 +25,7 @@ export function BowlerChangeModal({
   availableBowlers,
   players,
   onSelect,
+  isTest = false,
 }: BowlerChangeModalProps) {
   const sorted = [...availableBowlers].sort((a, b) => {
     const pa = getPlayerInfo(players, a.playerId);
@@ -45,7 +47,7 @@ export function BowlerChangeModal({
         <p className="text-[10px] text-gray-600 uppercase tracking-widest mb-1">New Over</p>
         <h2 className="text-lg font-black text-white mb-0.5">Select Bowler</h2>
         <p className="text-xs text-gray-600 mb-4">
-          Max 2 overs each · Previous bowler cannot bowl consecutive overs
+          {isTest ? "No over limit · Previous bowler cannot bowl consecutive overs" : "Max 2 overs each · Previous bowler cannot bowl consecutive overs"}
         </p>
 
         <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
@@ -97,12 +99,14 @@ export function BowlerChangeModal({
                     </span>
                   </div>
                   <div className="text-right shrink-0 ml-3">
+                    {!isTest && (
                     <p
                       className="text-xs font-bold tabular-nums"
                       style={{ color: oversRemaining === 2 ? "#34d399" : "#fbbf24" }}
                     >
                       {oversRemaining} ov left
                     </p>
+                    )}
                     {hasBowled && (
                       <p className="text-[9px] text-gray-500 tabular-nums">
                         {formatOvers(totalBalls)}-{bowler.runsConceded}-{bowler.wickets}

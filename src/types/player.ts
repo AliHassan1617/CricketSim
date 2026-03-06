@@ -21,6 +21,8 @@ export interface BowlingStats {
   pressureHandling: number;     // 0-100: Performance under pressure
 }
 
+export type BattingPosition = "opener" | "top-order" | "middle-order" | "lower-order" | "tailender";
+
 export interface Player {
   id: string;
   name: string;
@@ -28,6 +30,7 @@ export interface Player {
   role: "batsman" | "bowler" | "all-rounder" | "wicket-keeper";
   batting: BattingStats;
   bowling: BowlingStats;
+  battingPosition?: BattingPosition;
 }
 
 export interface Team {

@@ -65,22 +65,53 @@ const FLAT_WICKET_BONUS: Record<BattingIntent, number> = {
   [BattingIntent.Defensive]:  0,
 };
 
+// Test cricket: flat bonus near-zero — wickets must be EARNED ball by ball.
+const FLAT_WICKET_BONUS_TEST: Record<BattingIntent, number> = {
+  [BattingIntent.Aggressive]: 0.5,
+  [BattingIntent.Balanced]:   0,
+  [BattingIntent.Defensive]:  0,
+};
+
 export function resolveOutcome(
   net: number,
   intent: BattingIntent,
   fieldType: FieldType,
-  isFreeHit: boolean
+  isFreeHit: boolean,
+  isTest = false,
 ): BallOutcome {
   let weights = interpolateWeights(net);
   weights = applyIntentAndFieldMultipliers(weights, intent, fieldType);
 
   // Add flat wicket risk for intent (independent of net score)
-  weights[6] = Math.max(0, weights[6]) + FLAT_WICKET_BONUS[intent];
+  const flatBonus = isTest ? FLAT_WICKET_BONUS_TEST[intent] : FLAT_WICKET_BONUS[intent];
+  weights[6] = Math.max(0, weights[6]) + flatBonus;
+
+  if (isTest) {
+    // Test cricket physics: target ~3.0–3.5 RPO, ~10 wickets in 80–110 overs.
+    // Apply multipliers to all non-dot outcomes, then pour ALL freed weight
+    // into dots — creating the watchful, patient Test defence.
+    //
+    // Maths at net=0→10 base [22,30,12,2,6,2,3] total=77:
+    //   wickets: 3×0.45=1.35 (floor=1.0 → stays 1.35) → 1.35/77 ≈ 1.75%/ball
+    //   10 wickets in ~571 balls ≈ 95 overs → typical Test innings ✓
+    //   RPO ≈ 3.1 ✓
+    const totalBefore = weights.reduce((s, w) => s + w, 0);
+    weights[6] *= 0.45;                       // wickets: ~1.75%/ball at neutral skill
+    weights[6]  = Math.max(weights[6], 1.0);  // floor: ensure some wicket risk always exists
+    weights[5] *= 0.15;   // sixes: extremely rare in Tests
+    weights[4] *= 0.30;   // fours: deep-set defensive fields
+    weights[3] *= 0.50;   // triples: uncommon
+    weights[2] *= 0.45;   // doubles: significantly reduced
+    weights[1] *= 0.55;   // singles: still most common run but cut substantially
+    // All freed weight → dots (patient, watchful Test-match defence)
+    const totalAfter = weights.reduce((s, w) => s + w, 0);
+    weights[0] += (totalBefore - totalAfter);
+  }
 
   // On free hit, wicket becomes dot
   if (isFreeHit) {
-    weights[6] = 0; // No wicket on free hit
-    weights[0] += 5; // Slight increase in dots
+    weights[6] = 0;
+    weights[0] += 5;
   }
 
   return weightedPick(OUTCOMES, weights);

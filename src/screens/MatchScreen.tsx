@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useGame } from "../state/gameContext";
-import { BallOutcome, BattingIntent, BowlerLine, BowlerType, FieldType } from "../types/enums";
+import { BallOutcome, BattingIntent, BowlerLine, BowlerType, DismissalType, FieldType, MatchFormat } from "../types/enums";
 import { BallEvent, Innings } from "../types/match";
 import { simulateBall } from "../engine/index";
 import {
@@ -21,7 +21,8 @@ import type { BowlingLineChoice, BowlingLengthChoice } from "../components/Pitch
 import { formatOvers, formatRunRate, formatEconomy } from "../utils/format";
 import { useMultiplayer } from "../multiplayer/MultiplayerContext";
 import { GuestMsg, MatchSnapshot } from "../multiplayer/types";
-import { playCheer, playGroan } from "../utils/sounds";
+import { playCheer, playGroan, startAmbientCrowd, stopAmbientCrowd } from "../utils/sounds";
+import { MomentAnimation } from "../components/MomentAnimation";
 
 // ─── Bat icon — shown next to the on-strike batsman ──────────────────────────
 function BatIcon({ className }: { className?: string }) {
@@ -116,15 +117,21 @@ function WormChart({ innings, firstInnings, matchOvers }: {
   const first = firstInnings ? buildWorm(firstInnings) : null;
   const maxRuns = Math.max(...curr.map(p => p.y), first ? Math.max(...first.map(p => p.y)) : 0, 40);
 
-  const toX = (ov: number) => padL + (ov / matchOvers) * cW;
+  // For display, scale x-axis to actual overs played (not 450 for Test)
+  const displayOvers = Math.max(
+    innings.totalOvers + (innings.ballsInCurrentOver > 0 ? 1 : 0),
+    first ? (first.length > 0 ? first[first.length - 1].x : 0) : 0,
+    matchOvers <= 20 ? matchOvers : 20 // limited-overs: full span; Test: show actual
+  );
+  const toX = (ov: number) => padL + (ov / displayOvers) * cW;
   const toY = (r: number)  => padT + cH - (r / maxRuns) * cH;
   const path = (pts: { x: number; y: number }[]) =>
     pts.map((p, i) => `${i === 0 ? "M" : "L"}${toX(p.x).toFixed(1)} ${toY(p.y).toFixed(1)}`).join(" ");
 
   const yTicks = [0, Math.round(maxRuns / 2), maxRuns];
-  const step = matchOvers <= 5 ? 1 : matchOvers <= 10 ? 2 : 5;
+  const step = displayOvers <= 5 ? 1 : displayOvers <= 10 ? 2 : displayOvers <= 50 ? 10 : 20;
   const xTicks: number[] = [];
-  for (let i = 0; i <= matchOvers; i += step) xTicks.push(i);
+  for (let i = 0; i <= displayOvers; i += step) xTicks.push(i);
 
   return (
     <svg width={W} height={H}>
@@ -196,7 +203,9 @@ function RPOChart({ innings }: { innings: Innings }) {
 
 function computeWinProb(runs: number, target: number, totalBalls: number, matchOvers: number, wickets: number): number {
   const remaining = target - runs;
-  const remainingBalls = matchOvers * 6 - totalBalls;
+  // Test (matchOvers=450): treat as 90-over "day" context for win-prob so the number is meaningful
+  const effectiveOvers = matchOvers >= 90 ? Math.max(90, Math.ceil(totalBalls / 6) + 60) : matchOvers;
+  const remainingBalls = effectiveOvers * 6 - totalBalls;
   if (remaining <= 0) return 100;
   if (remainingBalls <= 0 || wickets >= 10) return 0;
   const reqRate = (remaining / remainingBalls) * 6;
@@ -440,7 +449,7 @@ export function MatchScreen() {
     bowlerName: string; spellOvers: number; spellRuns: number; spellWickets: number;
     events: BallEvent[];
   } | null>(null);
-  const [celebration, setCelebration] = useState<{ type: "six" | "wicket"; text: string } | null>(null);
+  const [celebration, setCelebration] = useState<{ type: "six" | "wicket"; text: string; dismissalType?: DismissalType } | null>(null);
   const celebrationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [milestone, setMilestone]   = useState<string | null>(null);
   const [isPaused, setIsPaused]                   = useState(false);
@@ -468,6 +477,12 @@ export function MatchScreen() {
   // Auto-bowler: fires when a new over starts and an AI-controlled side needs a bowler.
   // Covers: user batting (AI always auto-picks) AND simulate mode (AI picks for user bowling too).
   // In multiplayer host mode: when user is batting (guest is bowling), ask guest to pick instead.
+  // Ambient crowd buzz — start on mount, fade out on unmount
+  useEffect(() => {
+    startAmbientCrowd();
+    return () => stopAmbientCrowd();
+  }, []);
+
   useEffect(() => {
     if (!innings || !state.needsBowlerChange) return;
 
@@ -531,20 +546,18 @@ export function MatchScreen() {
     const bowlerName = lastEv
       ? (getAllPlayers(state).find(p => p.id === lastEv.bowlerId)?.shortName ?? "?")
       : "?";
-    setOverSummary({
-      over: curr,
-      runs: runsInOver,
-      wickets: wktsInOver,
-      bowlerName,
-      spellOvers: bowlerSpell?.overs ?? 0,
-      spellRuns: bowlerSpell?.runsConceded ?? runsInOver,
-      spellWickets: bowlerSpell?.wickets ?? wktsInOver,
-      events: overEvts,
-    });
-    // In simulate mode auto-dismiss so the game keeps flowing
-    if (state.isSimulating) {
-      const t = setTimeout(() => setOverSummary(null), 1800);
-      return () => clearTimeout(t);
+    // Skip over summary modal entirely when simulating — don't block the loop
+    if (!state.isSimulating) {
+      setOverSummary({
+        over: curr,
+        runs: runsInOver,
+        wickets: wktsInOver,
+        bowlerName,
+        spellOvers: bowlerSpell?.overs ?? 0,
+        spellRuns: bowlerSpell?.runsConceded ?? runsInOver,
+        spellWickets: bowlerSpell?.wickets ?? wktsInOver,
+        events: overEvts,
+      });
     }
   }, [innings?.totalOvers]);
 
@@ -555,20 +568,24 @@ export function MatchScreen() {
     if (!ev) return;
     const allP = getAllPlayers(state);
 
-    // ── Celebration flash (SIX / WICKET) + crowd sounds ──────────────────
+    // ── Celebration flash (SIX / WICKET) + crowd sounds + haptics ───────
     if (ev.outcome === BallOutcome.Six) {
+      navigator.vibrate?.([60, 30, 100]);
       if (celebrationTimer.current) clearTimeout(celebrationTimer.current);
       const batsmanP = allP.find(pl => pl.id === ev.batsmanId);
       setCelebration({ type: "six", text: batsmanP?.shortName ?? "SIX!" });
       celebrationTimer.current = setTimeout(() => setCelebration(null), 1600);
       if (isBatting) playCheer(); else playGroan();
     } else if (ev.outcome === BallOutcome.Wicket) {
+      navigator.vibrate?.([80, 40, 80, 40, 140]);
       if (celebrationTimer.current) clearTimeout(celebrationTimer.current);
       const bowlerP = allP.find(pl => pl.id === ev.bowlerId);
       const batsmanP = allP.find(pl => pl.id === ev.batsmanId);
-      setCelebration({ type: "wicket", text: batsmanP ? `${batsmanP.shortName} OUT!` : "WICKET!" });
+      setCelebration({ type: "wicket", text: batsmanP ? `${batsmanP.shortName} OUT!` : "WICKET!", dismissalType: ev.dismissalType });
       celebrationTimer.current = setTimeout(() => setCelebration(null), 1800);
       if (isBatting) playGroan(); else playCheer();
+    } else if (ev.outcome === BallOutcome.Four) {
+      navigator.vibrate?.(30);
     }
 
     const bat = innings.batsmen.find(b => b.playerId === ev.batsmanId);
@@ -601,9 +618,16 @@ export function MatchScreen() {
     if (state.pendingBatsmanSelection) return;
     if (overSummary) return; // pause while over-summary modal is open (auto-dismissed in sim mode)
     const inns = getActiveInnings(state);
-    if (!inns || inns.isComplete || state.needsBowlerChange) return;
+    // Stop simulation when the innings ends (prevents carry-over to next innings)
+    if (!inns || inns.isComplete || state.needsBowlerChange) {
+      if (inns?.isComplete && (simOverTarget !== null || state.isSimulating)) {
+        dispatch({ type: "SET_SIMULATING", payload: { value: false } });
+        setSimOverTarget(null);
+      }
+      return;
+    }
     if (!getCurrentBatsmanOnStrike(inns) || !getCurrentBowler(inns)) return;
-    // Stop when simulating a single over and the target over is reached
+    // Stop when simulating a fixed number of overs and the target is reached
     if (simOverTarget !== null && inns.totalOvers >= simOverTarget) {
       dispatch({ type: "SET_SIMULATING", payload: { value: false } });
       setSimOverTarget(null);
@@ -691,11 +715,15 @@ export function MatchScreen() {
     const blStats = findPlayer(allPlayers, curBowler.playerId);
     if (!bsStats || !blStats) return;
 
-    const aiIntent = getAIIntent(
+    const rawAiIntent = getAIIntent(
       innings.totalRuns, innings.totalWickets, innings.totalOvers,
       onStrike.balls, bsStats.batting.power, onStrike.confidence,
       innings.matchOvers, innings.target,
     );
+    // Test cricket first/third innings: cap AI at Balanced — no wild swiping without a target
+    const aiIntent = (innings.matchOvers >= 90 && innings.target === undefined)
+      ? (rawAiIntent === BattingIntent.Aggressive ? BattingIntent.Balanced : rawAiIntent)
+      : rawAiIntent;
     const aiLine = getAIBowlingLine(
       bsStats.batting.power, bsStats.batting.offsideSkill, bsStats.batting.legsideSkill,
       blStats.bowling.bowlerType, innings.totalOvers, innings.matchOvers,
@@ -870,7 +898,7 @@ export function MatchScreen() {
     }
 
     const snap: MatchSnapshot = {
-      inningsNum:   state.currentInnings as 1 | 2,
+      inningsNum:   (state.currentInnings <= 2 ? state.currentInnings : 2) as 1 | 2,
       hostTeamName: state.userTeam?.name ?? "Host",
       guestTeamName: state.opponentTeam?.name ?? "Guest",
       hostBatting:  innings.isUserBatting,
@@ -1008,8 +1036,13 @@ export function MatchScreen() {
         </div>
       )}
 
-      {/* ── Celebration overlay (SIX / WICKET) ── */}
-      {celebration && (
+      {/* ── Moment animation — SVG cricket scene (non-simulation only) ── */}
+      {!state.isSimulating && celebration && (
+        <MomentAnimation type={celebration.type} dismissalType={celebration.dismissalType} />
+      )}
+
+      {/* ── Celebration overlay (SIX / WICKET) — simulation mode only; SVG scene shown otherwise ── */}
+      {state.isSimulating && celebration && (
         <div
           style={{
             position: "fixed", inset: 0, zIndex: 70,
@@ -1469,7 +1502,7 @@ export function MatchScreen() {
                 <span className="text-[11px] text-gray-500 uppercase shrink-0">{bowlerP?.bowling.bowlerType ?? ""}</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {curBowler && (
+                {curBowler && state.format !== MatchFormat.Test && (
                   <span className="text-[10px] text-gray-600">{curBowler.maxOvers - curBowler.overs}ov left</span>
                 )}
                 {!isBatting && (
@@ -1756,7 +1789,7 @@ export function MatchScreen() {
       {/* ══ PER-OVER MOMENTUM STRIP ══ */}
       <div className="shrink-0 px-3 pt-2 pb-1 flex gap-[2px]"
            style={{ background: "rgba(0,0,0,0.25)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-        {Array.from({ length: innings.matchOvers }, (_, i) => {
+        {Array.from({ length: Math.min(innings.matchOvers, Math.max(innings.totalOvers + 5, 20)) }, (_, i) => {
           const evts    = innings.allEvents.filter(e => e.overNumber === i);
           const runs    = evts.reduce((s, e) => s + e.runsScored, 0);
           const hasWkt  = evts.some(e => e.outcome === BallOutcome.Wicket);
@@ -1819,6 +1852,7 @@ export function MatchScreen() {
           availableBowlers={getAvailableBowlers(innings)}
           players={allPlayers}
           onSelect={id => dispatch({ type:"CHANGE_BOWLER", payload:{ bowlerId: id } })}
+          isTest={state.format === MatchFormat.Test}
         />
       )}
 
@@ -2040,19 +2074,64 @@ export function MatchScreen() {
 
               <div className="h-px my-1" style={{ background: "rgba(255,255,255,0.08)" }} />
 
-              {/* Simulate 1 Over — exhibition only, not in multiplayer */}
+              {/* Simulate buttons — exhibition only, not in multiplayer */}
               {!isMultiplayer && (
+                <>
+                  {/* Simulate 1 Over */}
+                  <button
+                    onClick={() => {
+                      if (!canPlay) return;
+                      setSimOverTarget(innings.totalOvers + 1);
+                      dispatch({ type: "SET_SIMULATING", payload: { value: true } });
+                      setIsPaused(false);
+                    }}
+                    disabled={!canPlay}
+                    className="w-full py-4 rounded-xl font-bold text-base transition-colors active:scale-[0.98] disabled:opacity-40"
+                    style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#93c5fd" }}>
+                    Simulate 1 Over
+                  </button>
+                  {/* Simulate 10 Overs — T20 and ODI only */}
+                  {(state.format === MatchFormat.T20 || state.format === MatchFormat.ODI) && (
+                    <button
+                      onClick={() => {
+                        if (!canPlay) return;
+                        setSimOverTarget(innings.totalOvers + 10);
+                        dispatch({ type: "SET_SIMULATING", payload: { value: true } });
+                        setIsPaused(false);
+                      }}
+                      disabled={!canPlay}
+                      className="w-full py-4 rounded-xl font-bold text-base transition-colors active:scale-[0.98] disabled:opacity-40"
+                      style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.3)", color: "#6ee7b7" }}>
+                      Simulate 10 Overs
+                    </button>
+                  )}
+                  {/* Simulate Entire Innings — Test only */}
+                  {state.format === "Test" && (
+                    <button
+                      onClick={() => {
+                        if (!canPlay) return;
+                        dispatch({ type: "SET_SIMULATING", payload: { value: true } });
+                        setIsPaused(false);
+                      }}
+                      disabled={!canPlay}
+                      className="w-full py-4 rounded-xl font-bold text-base transition-colors active:scale-[0.98] disabled:opacity-40"
+                      style={{ background: "rgba(168,85,247,0.15)", border: "1px solid rgba(168,85,247,0.3)", color: "#c4b5fd" }}>
+                      Simulate Entire Innings
+                    </button>
+                  )}
+                </>
+              )}
+
+              {/* Declare innings — Test only, user batting, at least 1 over bowled */}
+              {state.format === MatchFormat.Test && isBatting && innings.totalOvers >= 1 && (
                 <button
                   onClick={() => {
-                    if (!canPlay) return;
-                    setSimOverTarget(innings.totalOvers + 1);
-                    dispatch({ type: "SET_SIMULATING", payload: { value: true } });
+                    dispatch({ type: "DECLARE_INNINGS" });
                     setIsPaused(false);
                   }}
-                  disabled={!canPlay}
-                  className="w-full py-4 rounded-xl font-bold text-base transition-colors active:scale-[0.98] disabled:opacity-40"
-                  style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#93c5fd" }}>
-                  Simulate 1 Over
+                  className="w-full py-4 rounded-xl font-bold text-base transition-colors active:scale-[0.98]"
+                  style={{ background: "rgba(234,179,8,0.12)", border: "1px solid rgba(234,179,8,0.3)", color: "#fde047" }}>
+                  Declare Innings
                 </button>
               )}
 

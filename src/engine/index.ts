@@ -175,12 +175,16 @@ export function simulateBall(
   const ballNumber = innings.ballsInCurrentOver + 1;
   const totalBalls = innings.totalOvers * 6 + innings.ballsInCurrentOver;
   const totalOversInMatch = innings.matchOvers;
-  const isDeathOvers = overNumber >= totalOversInMatch - 2; // last 2 overs
+  const isTest = innings.matchOvers >= 90;
+  const isDeathOvers = !isTest && overNumber >= totalOversInMatch - 2; // last 2 overs (N/A for Test)
 
   // 1. Compute pressure index (always, used in scoring)
+  // For Test (matchOvers=450), cap pressure horizon at 90 overs so chasing pressure
+  // is meaningful (not diluted across a theoretical 2700-ball match).
+  const effectivePressureBalls = isTest ? Math.max(totalBalls + 60, 540) : innings.matchOvers * 6;
   let pressureIndex = 0;
   if (target !== undefined) {
-    const pressure = computePressure(target, innings.totalRuns, totalBalls, innings.totalWickets, innings.matchOvers * 6);
+    const pressure = computePressure(target, innings.totalRuns, totalBalls, innings.totalWickets, effectivePressureBalls);
     pressureIndex = pressure.totalPressure;
   }
 
@@ -232,13 +236,13 @@ export function simulateBall(
 
   // 6. Apply pressure modifier to batScore if chasing
   if (target !== undefined) {
-    const pressure = computePressure(target, innings.totalRuns, totalBalls, innings.totalWickets, innings.matchOvers * 6);
+    const pressure = computePressure(target, innings.totalRuns, totalBalls, innings.totalWickets, effectivePressureBalls);
     batScore = applyPressureToBatScore(batScore, pressure, battingIntent);
   }
 
   // 7. Compute net and resolve outcome
   const net = batScore - bowlScore;
-  let outcome = resolveOutcome(net, battingIntent, fieldType, innings.isFreeHit || isNoBall);
+  let outcome = resolveOutcome(net, battingIntent, fieldType, innings.isFreeHit || isNoBall, isTest);
 
   // If no ball, the outcome still counts for runs but no wicket
   if (isNoBall && outcome === BallOutcome.Wicket) {

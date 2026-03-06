@@ -1,7 +1,9 @@
 export enum MatchFormat {
-  T5  = "T5",
-  T10 = "T10",
-  T20 = "T20",
+  T5   = "T5",
+  T10  = "T10",
+  T20  = "T20",
+  ODI  = "ODI",
+  Test = "Test",
 }
 
 export enum BowlerType {
@@ -66,9 +68,13 @@ export enum GamePhase {
   FirstInnings       = "first-innings",
   InningsSummary     = "innings-summary",
   SecondInnings      = "second-innings",
+  ThirdInnings       = "third-innings",
+  FourthInnings      = "fourth-innings",
   FinalScorecard     = "final-scorecard",
   MultiplayerLobby   = "multiplayer-lobby",
   MultiplayerGuest   = "multiplayer-guest",
+  WCSetup            = "wc-setup",
+  WCHub              = "wc-hub",
 }
 
 export enum SidebarTab {
