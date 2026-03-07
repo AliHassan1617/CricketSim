@@ -2267,7 +2267,7 @@ export function MatchScreen() {
                 })}
                 <div className="flex items-center px-4 py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                   <span className="flex-1 text-gray-500 text-sm">Extras</span>
-                  <span className="text-gray-400 text-sm tabular-nums">{activeInn.extras ?? 0}</span>
+                  <span className="text-gray-400 text-sm tabular-nums">{(activeInn.extras?.wides ?? 0) + (activeInn.extras?.noBalls ?? 0)}</span>
                 </div>
                 <div className="flex items-center px-4 py-3" style={{ background: "rgba(0,0,0,0.2)" }}>
                   <span className="flex-1 text-white font-semibold text-sm">Total</span>
