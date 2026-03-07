@@ -12,6 +12,7 @@ import {
 import { Team } from "./player";
 import { Stadium } from "../data/stadiums";
 import { WorldCupState } from "./worldCup";
+import { SeriesState } from "./series";
 
 export interface BallEvent {
   ballNumber: number;
@@ -132,4 +133,7 @@ export interface MatchState {
 
   // World Cup tournament state (null when not in WC mode)
   worldCup: WorldCupState | null;
+
+  // Series state (null when not in a series)
+  series: SeriesState | null;
 }

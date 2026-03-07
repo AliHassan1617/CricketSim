@@ -6,6 +6,7 @@ import { updateBatsmanConfidence, updateBowlerConfidence } from "../engine/confi
 import { getAllTeams, getTeam } from "../data/teamDb";
 import { generateGroupFixtures, generateKnockoutStubs, computeStandings } from "../utils/wcEngine";
 import { WCBatsmanPerf, WCBowlerPerf, WCFixture, WCFixtureResult, WCPhase, WorldCupState } from "../types/worldCup";
+import { SeriesState } from "../types/series";
 
 export const initialState: MatchState = {
   phase: GamePhase.Start,
@@ -31,6 +32,7 @@ export const initialState: MatchState = {
   pendingBatsmanSelection: null,
   stadium: null,
   worldCup: null,
+  series: null,
 };
 
 /**
@@ -235,6 +237,20 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
         opponentTeam: action.payload.opponentTeam,
         phase: GamePhase.MatchSetup,
         sidebarTab: SidebarTab.Squad,
+        // Clear any innings data from a previous match
+        firstInnings: null,
+        secondInnings: null,
+        thirdInnings: null,
+        fourthInnings: null,
+        currentInnings: 1,
+        tossWinner: "user",
+        userBatsFirst: true,
+        pendingBatsmanSelection: null,
+        isSimulating: false,
+        selectedXI: [],
+        battingOrder: [],
+        bowlerIds: [],
+        tacticsUnlocked: false,
       };
     }
 
@@ -741,16 +757,17 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
 
       const newBattingOrder = [...innings.battingOrder, batsmanId];
       const newBatsmen = [...innings.batsmen, makeEntry(batsmanId)];
-      const newStrikeIdx = newBattingOrder.length - 1;
-
+      // Do NOT override currentBatsmanOnStrike / currentBatsmanNonStrike here.
+      // PROCESS_BALL_RESULT already set them correctly, including the end-of-over
+      // strike rotation. Overriding them causes the new batsman to appear in both
+      // positions when the wicket falls on the last ball of an over.
       return {
         ...state,
         [inningsKey]: {
           ...innings,
           battingOrder: newBattingOrder,
           batsmen: newBatsmen,
-          currentBatsmanOnStrike: newStrikeIdx,
-          nextBatsmanIndex: newStrikeIdx + 1,
+          nextBatsmanIndex: newBatsmen.length,
         },
         pendingBatsmanSelection: null,
       };
@@ -906,6 +923,55 @@ export function gameReducer(state: MatchState, action: GameAction): MatchState {
     case "WC_ADVANCE_TO_KNOCKOUT": {
       // No-op — knockouts now auto-advance via applyWCTransitions
       return state;
+    }
+
+    // ── Series ───────────────────────────────────────────────────────────────
+    case "SERIES_INIT": {
+      const { totalMatches, format, userTeamId, oppTeamId, userTeamName, oppTeamName } = action.payload;
+      const series: SeriesState = {
+        totalMatches, format, userTeamId, oppTeamId,
+        userTeamName, oppTeamName,
+        results: [], currentMatch: 1, userWins: 0, oppWins: 0,
+      };
+      return { ...state, series, phase: GamePhase.SeriesHub };
+    }
+
+    case "SERIES_RECORD_RESULT": {
+      if (!state.series) return state;
+      const { result } = action.payload;
+      const newResults = [...state.series.results, result];
+      const userWins = newResults.filter(r => r.winner === "user").length;
+      const oppWins  = newResults.filter(r => r.winner === "opponent").length;
+      const halfPlus1 = Math.ceil(state.series.totalMatches / 2);
+      const seriesOver = userWins >= halfPlus1 || oppWins >= halfPlus1
+                      || newResults.length >= state.series.totalMatches;
+      return {
+        ...state,
+        series: { ...state.series, results: newResults, userWins, oppWins,
+                  currentMatch: state.series.currentMatch + 1 },
+        phase: seriesOver ? GamePhase.SeriesHub : GamePhase.SeriesHub,
+      };
+    }
+
+    case "SERIES_NEXT_MATCH": {
+      if (!state.series) return state;
+      const team  = getTeam(state.series.userTeamId);
+      const opp   = getTeam(state.series.oppTeamId);
+      if (!team || !opp) return state;
+      return {
+        ...state,
+        userTeam: team, opponentTeam: opp,
+        firstInnings: null, secondInnings: null,
+        thirdInnings: null, fourthInnings: null,
+        currentInnings: 1,
+        needsBowlerChange: false, pendingBatsmanSelection: null,
+        isSimulating: false, tacticsUnlocked: false,
+        phase: GamePhase.MatchSetup,
+      };
+    }
+
+    case "GO_TO_SERIES": {
+      return { ...state, phase: GamePhase.SeriesSetup };
     }
 
     default:

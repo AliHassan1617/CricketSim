@@ -37,6 +37,18 @@ button {
   touch-action: manipulation;
 }
 
+/* Screen transition — triggered by key change on phase */
+@keyframes screenFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Bottom sheet slide-up (over summary, etc.) */
+@keyframes sheetSlideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
 @keyframes slideDown {
   from { opacity: 0; transform: translate(-50%, -14px); }
   to   { opacity: 1; transform: translate(-50%, 0); }

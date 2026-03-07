@@ -53,7 +53,7 @@ function TeamCard({ team }: { team: Team }) {
           {team.shortName}
         </div>
         <div className="min-w-0">
-          <h2 className="text-sm font-bold text-white leading-tight truncate">{team.name}</h2>
+          <h2 className="text-sm font-bold text-white leading-tight break-words">{team.name}</h2>
           <div className="flex gap-1.5 mt-1 flex-wrap">
             {(["batsman", "wicket-keeper", "all-rounder", "bowler"] as const).map(role => {
               const count = team.players.filter(p => p.role === role).length;
@@ -115,10 +115,17 @@ function ArrowBtn({ onClick, children }: { onClick: () => void; children: React.
 
 // ── Main screen ────────────────────────────────────────────────────────────────
 
+function randomPair(): [number, number] {
+  const a = Math.floor(Math.random() * TEAMS.length);
+  const b = (a + 1 + Math.floor(Math.random() * (TEAMS.length - 1))) % TEAMS.length;
+  return [a, b];
+}
+
 export function ExhibitionCarouselScreen() {
   const { dispatch } = useGame();
-  const [userIdx, setUserIdx] = useState(0);
-  const [oppIdx,  setOppIdx]  = useState(1);
+  const [init] = useState(randomPair);
+  const [userIdx, setUserIdx] = useState(init[0]);
+  const [oppIdx,  setOppIdx]  = useState(init[1]);
 
   function moveUser(dir: 1 | -1) {
     setUserIdx(prev => {
@@ -165,48 +172,44 @@ export function ExhibitionCarouselScreen() {
         <h2 className="text-3xl font-black text-white text-center">Pick Teams</h2>
       </div>
 
-      {/* Side-by-side carousels — cards are the main focus */}
-      <div className="flex-1 flex items-center">
-        <div className="w-full flex items-start gap-3">
+      {/* Side-by-side carousels */}
+      <div className="flex-1 flex flex-col gap-3">
 
-          {/* User column */}
-          <div className="flex-1 flex flex-col gap-3">
-            <p className="text-[9px] uppercase tracking-widest text-gray-500 font-semibold text-center">
-              Your Team
-            </p>
-            <div className="flex items-center gap-2">
-              <ArrowBtn onClick={() => moveUser(-1)}>‹</ArrowBtn>
-              <span className="flex-1 text-[11px] text-gray-300 text-center font-semibold truncate">
-                {TEAMS[userIdx].name}
-              </span>
-              <ArrowBtn onClick={() => moveUser(1)}>›</ArrowBtn>
-            </div>
-            <TeamCard team={TEAMS[userIdx]} />
-          </div>
-
-          {/* VS divider */}
-          <div className="flex flex-col items-center gap-1 pt-10 shrink-0" style={{ minHeight: 200 }}>
-            <div className="w-px flex-1" style={{ background: "rgba(255,255,255,0.07)" }} />
-            <span className="text-gray-600 text-[11px] font-bold tracking-widest py-1">VS</span>
-            <div className="w-px flex-1" style={{ background: "rgba(255,255,255,0.07)" }} />
-          </div>
-
-          {/* Opponent column */}
-          <div className="flex-1 flex flex-col gap-3">
-            <p className="text-[9px] uppercase tracking-widest text-gray-500 font-semibold text-center">
-              Opponent
-            </p>
-            <div className="flex items-center gap-2">
-              <ArrowBtn onClick={() => moveOpp(-1)}>‹</ArrowBtn>
-              <span className="flex-1 text-[11px] text-gray-300 text-center font-semibold truncate">
-                {TEAMS[oppIdx].name}
-              </span>
-              <ArrowBtn onClick={() => moveOpp(1)}>›</ArrowBtn>
-            </div>
-            <TeamCard team={TEAMS[oppIdx]} />
-          </div>
-
+        {/* Row 1: labels */}
+        <div className="flex gap-3">
+          <p className="flex-1 text-[9px] uppercase tracking-widest text-gray-500 font-semibold text-center">Your Team</p>
+          <div className="shrink-0" style={{ width: 20 }} />
+          <p className="flex-1 text-[9px] uppercase tracking-widest text-gray-500 font-semibold text-center">Opponent</p>
         </div>
+
+        {/* Row 2: arrow controls — fixed height, never affected by card */}
+        <div className="flex items-center gap-3">
+          <div className="flex-1 flex items-center gap-2">
+            <ArrowBtn onClick={() => moveUser(-1)}>‹</ArrowBtn>
+            <span className="flex-1 text-[11px] text-gray-300 text-center font-semibold truncate">
+              {TEAMS[userIdx].name}
+            </span>
+            <ArrowBtn onClick={() => moveUser(1)}>›</ArrowBtn>
+          </div>
+          <span className="text-gray-600 text-[11px] font-bold tracking-widest shrink-0">VS</span>
+          <div className="flex-1 flex items-center gap-2">
+            <ArrowBtn onClick={() => moveOpp(-1)}>‹</ArrowBtn>
+            <span className="flex-1 text-[11px] text-gray-300 text-center font-semibold truncate">
+              {TEAMS[oppIdx].name}
+            </span>
+            <ArrowBtn onClick={() => moveOpp(1)}>›</ArrowBtn>
+          </div>
+        </div>
+
+        {/* Row 3: cards — heights independent of controls above */}
+        <div className="flex items-start gap-3">
+          <div className="flex-1"><TeamCard team={TEAMS[userIdx]} /></div>
+          <div className="shrink-0 self-stretch flex items-center" style={{ width: 20 }}>
+            <div className="w-px h-full mx-auto" style={{ background: "rgba(255,255,255,0.07)" }} />
+          </div>
+          <div className="flex-1"><TeamCard team={TEAMS[oppIdx]} /></div>
+        </div>
+
       </div>
 
       {/* Proceed button — pushed to bottom with generous space */}

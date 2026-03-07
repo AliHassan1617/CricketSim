@@ -1,11 +1,22 @@
 import { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: "com.cricketsim.app",
-  appName: "CricketSim",
+  appId: "com.myukijarret.cricketmanager",
+  appName: "Cricket Manager",
   webDir: "dist",
   android: {
     backgroundColor: "#09090b",
+    allowMixedContent: true,
+  },
+  plugins: {
+    StatusBar: {
+      style: "DARK",
+      backgroundColor: "#09090b",
+      overlaysWebView: true,
+    },
+    EdgeToEdge: {
+      backgroundColor: "#09090b",
+    },
   },
   server: {
     androidScheme: "https",

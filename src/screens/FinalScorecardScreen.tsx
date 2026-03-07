@@ -581,8 +581,19 @@ export function FinalScorecardScreen() {
           ))}
         </div>
 
-        {/* Scorecard content */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Scorecard content — swipeable */}
+        <div className="flex-1 overflow-y-auto"
+          onPointerDown={(e) => { (e.currentTarget as HTMLDivElement).dataset.swipeX = String(e.clientX); }}
+          onPointerUp={(e) => {
+            const startX = Number((e.currentTarget as HTMLDivElement).dataset.swipeX ?? 0);
+            const dx = e.clientX - startX;
+            if (Math.abs(dx) < 40) return;
+            const tabs = allInnings.map(i => i.num) as (1|2|3|4)[];
+            const cur = tabs.indexOf(activeTab);
+            if (dx < 0 && cur < tabs.length - 1) setActiveTab(tabs[cur + 1]);
+            else if (dx > 0 && cur > 0) setActiveTab(tabs[cur - 1]);
+          }}
+        >
           <div className="max-w-2xl mx-auto px-4 py-5">
             <InningsScorecard
               innings={activeInnings}
@@ -618,7 +629,35 @@ export function FinalScorecardScreen() {
               >
                 🏆 Return to Tournament
               </button>
-            ) : (
+            ) : state.series ? (() => {
+              const userTeamName = first.isUserBatting ? first.battingTeamName : first.bowlingTeamName;
+              const userInn = first.isUserBatting ? first : second;
+              const oppInn  = first.isUserBatting ? second : first;
+              const seriesWinner: "user" | "opponent" | "tie" =
+                winner === userTeamName ? "user"
+                : resultText.toLowerCase().includes("tie") || resultText.toLowerCase().includes("draw") ? "tie"
+                : "opponent";
+              const seriesResult = {
+                matchNum: state.series.currentMatch,
+                userRuns: userInn.totalRuns,
+                userWickets: userInn.totalWickets,
+                oppRuns: oppInn.totalRuns,
+                oppWickets: oppInn.totalWickets,
+                userOvers: `${userInn.totalOvers}.${userInn.ballsInCurrentOver}`,
+                oppOvers:  `${oppInn.totalOvers}.${oppInn.ballsInCurrentOver}`,
+                winner: seriesWinner,
+                resultText,
+              };
+              return (
+                <button
+                  onClick={() => dispatch({ type: "SERIES_RECORD_RESULT", payload: { result: seriesResult } })}
+                  className="w-full px-10 py-3 rounded-xl text-base font-bold transition-all active:scale-[0.97]"
+                  style={{ background: "linear-gradient(135deg,#f59e0b,#d97706)", color: "#09090b" }}
+                >
+                  Back to Series →
+                </button>
+              );
+            })() : (
               <button
                 onClick={() => dispatch({ type: "GO_TO_MAIN_MENU" })}
                 className="px-10 py-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 rounded-xl text-base font-bold transition-colors shadow-lg shadow-emerald-900/40"

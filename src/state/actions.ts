@@ -3,6 +3,7 @@ import { Team } from "../types/player";
 import { BattingIntent, FieldType, MatchFormat, PitchType, SidebarTab } from "../types/enums";
 import { Stadium } from "../data/stadiums";
 import { WCFixtureResult } from "../types/worldCup";
+import { SeriesMatchResult } from "../types/series";
 
 export type GameAction =
   | { type: "START_GAME" }
@@ -46,4 +47,9 @@ export type GameAction =
   | { type: "WC_PLAY_FIXTURE"; payload: { fixtureId: string } }
   | { type: "WC_RECORD_USER_RESULT" }
   | { type: "WC_RECORD_SIM_RESULT"; payload: { fixtureId: string; result: WCFixtureResult } }
-  | { type: "WC_ADVANCE_TO_KNOCKOUT" };
+  | { type: "WC_ADVANCE_TO_KNOCKOUT" }
+  // ── Series ───────────────────────────────────────────────────────────────────
+  | { type: "SERIES_INIT"; payload: { totalMatches: 3 | 5; format: MatchFormat; userTeamId: string; oppTeamId: string; userTeamName: string; oppTeamName: string } }
+  | { type: "SERIES_RECORD_RESULT"; payload: { result: SeriesMatchResult } }
+  | { type: "SERIES_NEXT_MATCH" }
+  | { type: "GO_TO_SERIES" };

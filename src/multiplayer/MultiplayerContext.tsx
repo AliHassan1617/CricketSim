@@ -59,45 +59,49 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     }
   }, [dispatch]);
 
-  const ICE_CONFIG = {
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
-      { urls: "stun:stun.cloudflare.com:3478" },
-    ],
-  };
+  const PEER_OPTS = { pingInterval: 3000 };
 
   const createRoom = useCallback(() => {
-    // Generate a short 6-char alphanumeric code as the peer ID (lowercase for PeerJS)
     const code = Math.random().toString(36).substring(2, 8).toLowerCase();
-    const peer = new Peer(code, { config: ICE_CONFIG });
+    const peer = new Peer(code, PEER_OPTS);
     peerRef.current = peer;
     setRole("host");
-    setCode(code.toUpperCase());
 
-    peer.on("connection", (conn) => {
-      wireConn(conn);
-    });
+    peer.on("open", (id) => { setCode(id.toUpperCase()); });
+    peer.on("disconnected", () => { if (!peer.destroyed) peer.reconnect(); });
+    peer.on("connection", (conn) => { wireConn(conn); });
     peer.on("error", (e) => {
       console.error("[MP host]", e);
-      setMpError("Connection failed. Check your internet and try again.");
+      // "peer-unavailable" is expected if no one joined yet — not a fatal error
+      if ((e as { type?: string }).type !== "peer-unavailable") {
+        setMpError("Could not create room. Check your connection and try again.");
+      }
     });
   }, [wireConn]);
 
   const joinRoom = useCallback((code: string) => {
-    const peer = new Peer(undefined as unknown as string, { config: ICE_CONFIG });
+    const peer = new Peer(PEER_OPTS as never);
     peerRef.current = peer;
     setRole("guest");
     setCode(code.toUpperCase());
     setMpError(null);
 
+    const timeout = setTimeout(() => {
+      if (!connRef.current?.open) {
+        setMpError("Timed out. Check the room code and try again.");
+        peer.destroy();
+      }
+    }, 15000);
+
+    peer.on("disconnected", () => { if (!peer.destroyed) peer.reconnect(); });
     peer.on("open", () => {
       const conn = peer.connect(code.toLowerCase());
       wireConn(conn);
     });
     peer.on("error", (e) => {
+      clearTimeout(timeout);
       console.error("[MP guest]", e);
-      setMpError("Could not connect. Make sure the room code is correct.");
+      setMpError("Could not connect. Check the room code and try again.");
     });
   }, [wireConn]);
 

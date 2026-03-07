@@ -12,6 +12,23 @@ function getCtx(): AudioContext | null {
   }
 }
 
+// Pause/resume all audio when the user switches away from the app/tab
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (!ctx) return;
+    if (document.hidden) ctx.suspend();
+    else if (ctx.state === "suspended") ctx.resume();
+  });
+}
+
+/**
+ * Resume the AudioContext after the first user interaction.
+ * Call this from a global click/touch handler so menu music starts immediately.
+ */
+export function resumeAudio() {
+  if (ctx && ctx.state === "suspended") ctx.resume();
+}
+
 /** White-noise burst filtered into a crowd roar that rises or falls */
 function noiseBurst(
   duration: number,
@@ -188,7 +205,7 @@ export function startMenuMusic() {
 
   const masterGain = a.createGain();
   masterGain.gain.setValueAtTime(0, a.currentTime);
-  masterGain.gain.linearRampToValueAtTime(0.13, a.currentTime + 3.5); // slow fade-in
+  masterGain.gain.linearRampToValueAtTime(0.07, a.currentTime + 3.5); // gentle fade-in
   masterGain.connect(a.destination);
 
   const oscillators: OscillatorNode[] = [];
@@ -206,35 +223,32 @@ export function startMenuMusic() {
     oscillators.push(osc);
   }
 
-  // Bass drone — D2 (two slightly detuned sines for warmth)
-  addPad(73.42, "sine", 0.55);
-  addPad(73.42, "sine", 0.22, 6);
+  // Bass drone — D2, pure sines only (no triangle = no buzz)
+  addPad(73.42, "sine", 0.40);
+  addPad(73.42, "sine", 0.14, 5);   // slight detune for warmth, not beating
 
-  // Pad chord — Dm (D3, F3, A3)
-  addPad(146.83, "triangle", 0.26);
-  addPad(174.61, "sine",     0.20);
-  addPad(220.00, "sine",     0.17);
+  // Pad chord — Dm (D3, F3, A3) — all sine, very soft
+  addPad(146.83, "sine", 0.14);
+  addPad(174.61, "sine", 0.10);
+  addPad(220.00, "sine", 0.09);
 
-  // High shimmer — D5
-  addPad(587.33, "sine", 0.055);
-
-  // ── Feedback delay for the arpeggio ─────────────────────────────────────
+  // ── Delay for the arpeggio — low feedback to avoid buildup ──────────────
   const delay       = a.createDelay(1.0);
   delay.delayTime.value = 0.42;
 
   const fbGain = a.createGain();
-  fbGain.gain.value = 0.36;
+  fbGain.gain.value = 0.18; // was 0.36 — halved to stop buzzy accumulation
 
   const delayLpf = a.createBiquadFilter();
   delayLpf.type            = "lowpass";
-  delayLpf.frequency.value = 1600;
+  delayLpf.frequency.value = 900; // cut highs more aggressively
 
   delay.connect(delayLpf);
   delayLpf.connect(fbGain);
   fbGain.connect(delay);
   delay.connect(masterGain);
 
-  // ── Arpeggio ─────────────────────────────────────────────────────────────
+  // ── Arpeggio — sine wave, quieter ────────────────────────────────────────
   let arpIdx  = 0;
   let stopped = false;
 
@@ -245,18 +259,18 @@ export function startMenuMusic() {
 
     const osc = a2.createOscillator();
     const g   = a2.createGain();
-    osc.type            = "triangle";
+    osc.type            = "sine";  // was "triangle" — sine is much smoother
     osc.frequency.value = MENU_ARP[arpIdx % MENU_ARP.length];
     arpIdx++;
 
     const len = 1.0;
     g.gain.setValueAtTime(0,    a2.currentTime);
-    g.gain.linearRampToValueAtTime(0.09, a2.currentTime + 0.04);
-    g.gain.setValueAtTime(0.09, a2.currentTime + len * 0.5);
+    g.gain.linearRampToValueAtTime(0.055, a2.currentTime + 0.04); // was 0.09
+    g.gain.setValueAtTime(0.055, a2.currentTime + len * 0.5);
     g.gain.exponentialRampToValueAtTime(0.001, a2.currentTime + len);
 
     osc.connect(g);
-    g.connect(delay); // routed through the delay for echo tail
+    g.connect(delay);
     osc.start(a2.currentTime);
     osc.stop(a2.currentTime + len + 0.1);
   }

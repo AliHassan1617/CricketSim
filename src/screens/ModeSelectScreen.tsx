@@ -62,17 +62,6 @@ export function ModeSelectScreen() {
           pointerEvents: "none",
         }}
       >
-        <p
-          style={{
-            fontSize: 9,
-            color: "rgba(255,255,255,0.3)",
-            letterSpacing: "0.5em",
-            textTransform: "uppercase",
-            marginBottom: 10,
-          }}
-        >
-          by Ali Hassan
-        </p>
         <div style={{ lineHeight: 1, letterSpacing: "-1.5px" }}>
           <span
             style={{
@@ -92,7 +81,7 @@ export function ModeSelectScreen() {
               color: "#f59e0b",
             }}
           >
-            Sim
+            Manager
           </span>
         </div>
       </div>
@@ -133,6 +122,35 @@ export function ModeSelectScreen() {
             </p>
             <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 12.5 }}>
               Pick teams, set the format, and play
+            </p>
+          </div>
+          <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 22, lineHeight: 1 }}>›</span>
+        </button>
+
+        {/* ── Series ────────────────────────────────────────── */}
+        <button
+          onClick={() => dispatch({ type: "GO_TO_SERIES" })}
+          className="active:scale-[0.97] active:opacity-90 transition-transform duration-100"
+          style={{
+            width: "100%",
+            padding: "16px 20px",
+            borderRadius: 18,
+            background: "rgba(52,211,153,0.08)",
+            border: "1px solid rgba(52,211,153,0.22)",
+            display: "flex",
+            alignItems: "center",
+            gap: 18,
+            textAlign: "left",
+            animation: "cardPop 0.5s 0.14s ease both",
+          }}
+        >
+          <span style={{ fontSize: 30, lineHeight: 1 }}>📋</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ color: "#34d399", fontSize: 11, fontWeight: 800, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 3 }}>
+              Series
+            </p>
+            <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>
+              Best-of-3 or best-of-5
             </p>
           </div>
           <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 22, lineHeight: 1 }}>›</span>
@@ -183,55 +201,53 @@ export function ModeSelectScreen() {
             </div>
           </button>
 
-          {/* Multiplayer */}
-          <button
-            onClick={() => dispatch({ type: "GO_TO_MULTIPLAYER" })}
-            className="active:scale-[0.97] active:opacity-90 transition-transform duration-100"
+          {/* Multiplayer — coming soon */}
+          <div
             style={{
+              position: "relative",
               padding: "20px 16px",
               borderRadius: 18,
-              background: "rgba(99,102,241,0.08)",
-              border: "1px solid rgba(99,102,241,0.25)",
+              background: "rgba(99,102,241,0.04)",
+              border: "1px solid rgba(99,102,241,0.12)",
               display: "flex",
               flexDirection: "column",
               alignItems: "flex-start",
               gap: 12,
               textAlign: "left",
+              opacity: 0.5,
+              cursor: "default",
             }}
           >
+            {/* Soon badge */}
+            <div style={{
+              position: "absolute", top: 10, right: 10,
+              background: "#f59e0b", borderRadius: 6,
+              padding: "2px 7px", fontSize: 8, fontWeight: 800,
+              letterSpacing: "0.15em", textTransform: "uppercase", color: "#09090b",
+            }}>
+              Soon
+            </div>
             <span style={{ fontSize: 30, lineHeight: 1 }}>📡</span>
             <div>
-              <p
-                style={{
-                  color: "#a5b4fc",
-                  fontSize: 11,
-                  fontWeight: 800,
-                  letterSpacing: "0.15em",
-                  textTransform: "uppercase",
-                  marginBottom: 3,
-                }}
-              >
+              <p style={{ color: "#a5b4fc", fontSize: 11, fontWeight: 800, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 3 }}>
                 Multiplayer
               </p>
               <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>
                 Play vs friends
               </p>
             </div>
-          </button>
+          </div>
         </div>
 
-        {/* Version */}
-        <p
-          style={{
-            textAlign: "center",
-            fontSize: 9.5,
-            color: "rgba(255,255,255,0.18)",
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-          }}
-        >
-          v0.1 alpha
-        </p>
+        {/* Version + credit */}
+        <div style={{ textAlign: "center" }}>
+          <p style={{ fontSize: 9.5, color: "rgba(255,255,255,0.18)", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 4 }}>
+            v0.1 alpha
+          </p>
+          <p style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.4em", textTransform: "uppercase" }}>
+            by Ali Hassan
+          </p>
+        </div>
       </div>
       </div>
     </div>

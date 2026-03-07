@@ -45,7 +45,7 @@ type WCFormat = typeof WC_FORMATS[number]["value"];
 
 export function WorldCupSetupScreen() {
   const { dispatch } = useGame();
-  const [idx, setIdx] = useState(0);
+  const [idx, setIdx] = useState(() => Math.floor(Math.random() * TEAMS.length));
   const [fmtIdx, setFmtIdx] = useState(0);
   const wcFmt: WCFormat = WC_FORMATS[fmtIdx].value;
 

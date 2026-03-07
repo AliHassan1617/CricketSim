@@ -56,7 +56,7 @@ export function Sidebar({ activeTab, onTabChange, team, isMatchPhase }: SidebarP
         </nav>
 
         <div className="p-4 border-t border-gray-700">
-          <p className="text-gray-600 text-xs text-center">CricketSim v2</p>
+          <p className="text-gray-600 text-xs text-center">Cricket Manager</p>
         </div>
       </div>
 

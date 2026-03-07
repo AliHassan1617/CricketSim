@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useGame } from "../state/gameContext";
 import { BallOutcome, BattingIntent, BowlerLine, BowlerType, DismissalType, FieldType, MatchFormat } from "../types/enums";
 import { BallEvent, Innings } from "../types/match";
@@ -454,6 +455,7 @@ export function MatchScreen() {
   const [milestone, setMilestone]   = useState<string | null>(null);
   const [isPaused, setIsPaused]                   = useState(false);
   const [pauseView, setPauseView]                 = useState<"menu"|"scorecard"|"worm">("menu");
+  const [scorecardInnTab, setScorecardInnTab]     = useState<1|2|3|4>(1);
   const [simOverTarget, setSimOverTarget]         = useState<number | null>(null);
   const [openerStrikerId, setOpenerStrikerId]     = useState<string | null>(null);
   const [openerNonStrikerId, setOpenerNonStrikerId] = useState<string | null>(null);
@@ -1087,19 +1089,22 @@ export function MatchScreen() {
         </div>
       )}
 
-      {/* ── Over summary modal ── */}
+      {/* ── Over summary — bottom sheet ── */}
       {overSummary && (
         <div
           style={{
             position: "fixed", inset: 0, zIndex: 60,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            background: "rgba(0,0,0,0.6)",
+            display: "flex", alignItems: "flex-end", justifyContent: "center",
+            background: "rgba(0,0,0,0.55)",
             backdropFilter: "blur(4px)",
           }}
         >
           <div
-            className="w-full max-w-sm mx-4 rounded-2xl overflow-hidden shadow-2xl"
-            style={{ background: "#0d1b12", border: "1px solid rgba(16,185,129,0.3)" }}
+            className="w-full max-w-sm rounded-t-2xl overflow-hidden shadow-2xl"
+            style={{
+              background: "#0d1b12", border: "1px solid rgba(16,185,129,0.3)",
+              animation: "sheetSlideUp 0.28s cubic-bezier(0.34,1.1,0.64,1) both",
+            }}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-3"
@@ -1277,6 +1282,31 @@ export function MatchScreen() {
           );
         })()}
       </div>
+
+      {/* ══ COMMENTARY STRIP ══ */}
+      {innings.allEvents.length > 0 && (() => {
+        const last = innings.allEvents[innings.allEvents.length - 1];
+        const accent = last.outcome === BallOutcome.Wicket ? "#f87171"
+                     : last.outcome === BallOutcome.Six    ? "#fbbf24"
+                     : last.outcome === BallOutcome.Four   ? "#60a5fa"
+                     : "rgba(255,255,255,0.45)";
+        return (
+          <div className="shrink-0" style={{
+            background: "rgba(0,0,0,0.35)",
+            borderBottom: "1px solid rgba(255,255,255,0.06)",
+            padding: "5px 16px",
+            fontSize: 11,
+            color: accent,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            fontStyle: "italic",
+            letterSpacing: "0.01em",
+          }}>
+            {last.commentary}
+          </div>
+        );
+      })()}
 
       {/* ══ MOBILE TAB BAR (hidden on desktop) ══ */}
       <div className="md:hidden flex shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
@@ -2009,8 +2039,8 @@ export function MatchScreen() {
         );
       })()}
 
-      {/* ══ PAUSE OVERLAY ══ */}
-      {isPaused && (
+      {/* ══ PAUSE OVERLAY ══ — rendered via portal so mobile overflow-y containers don't trap it */}
+      {isPaused && createPortal(
         <div className="fixed inset-0 z-50 flex flex-col text-white"
              style={{ background: "linear-gradient(135deg,#0a0f1e 0%,#0d1117 50%,#0a1628 100%)" }}>
 
@@ -2060,7 +2090,7 @@ export function MatchScreen() {
 
               {/* View screens */}
               <button
-                onClick={() => setPauseView("scorecard")}
+                onClick={() => { setScorecardInnTab(state.currentInnings as 1|2|3|4); setPauseView("scorecard"); }}
                 className="w-full py-4 rounded-xl text-white font-bold text-base transition-colors active:scale-[0.98]"
                 style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
                 Scorecard
@@ -2148,15 +2178,52 @@ export function MatchScreen() {
           )}
 
           {/* ── Full scorecard ── */}
-          {pauseView === "scorecard" && (
+          {pauseView === "scorecard" && (() => {
+            const isTest = state.format === MatchFormat.Test;
+            const allInn: { num: 1|2|3|4; inn: typeof state.firstInnings }[] = [
+              { num: 1, inn: state.firstInnings },
+              { num: 2, inn: state.secondInnings },
+              ...(isTest ? [{ num: 3 as const, inn: state.thirdInnings }, { num: 4 as const, inn: state.fourthInnings }] : []),
+            ];
+            const activeInn = allInn.find(i => i.num === scorecardInnTab)?.inn ?? state.firstInnings;
+            return (
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
+
+              {/* Innings tab strip */}
+              <div className="flex gap-2">
+                {allInn.map(({ num, inn }) => {
+                  const label = `Inn ${num}`;
+                  const isCur = num === scorecardInnTab;
+                  const isActive = num === state.currentInnings;
+                  return (
+                    <button key={num} onClick={() => setScorecardInnTab(num)}
+                      className="flex-1 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
+                      style={isCur
+                        ? { background: "rgba(245,158,11,0.2)", border: "1.5px solid #f59e0b", color: "#fbbf24" }
+                        : { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}>
+                      {label}{isActive ? " ●" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* No data yet */}
+              {!activeInn && (
+                <div className="rounded-xl p-8 text-center"
+                     style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <p className="text-gray-600 text-sm">Yet to bat</p>
+                </div>
+              )}
+
+              {/* Batting card */}
+              {activeInn && (<>
 
               {/* Batting card */}
               <div className="rounded-xl overflow-hidden"
                    style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
                 <div className="px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-emerald-400"
                      style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                  Batting — {innings.battingTeamName}
+                  Batting — {activeInn.battingTeamName}
                 </div>
                 <div className="flex items-center px-4 py-1.5"
                      style={{ background: "rgba(0,0,0,0.3)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
@@ -2167,10 +2234,11 @@ export function MatchScreen() {
                   <span className="w-8 text-right text-[10px] text-gray-500">6s</span>
                   <span className="w-12 text-right text-[10px] text-gray-500">SR</span>
                 </div>
-                {innings.batsmen.map((bat, i) => {
+                {activeInn.batsmen.map((bat, i) => {
                   const p   = findPlayer(allPlayers, bat.playerId);
-                  const str = i === innings.currentBatsmanOnStrike && !innings.isComplete;
-                  const ns  = i === innings.currentBatsmanNonStrike && !innings.isComplete;
+                  const isCurInn = scorecardInnTab === state.currentInnings;
+                  const str = isCurInn && i === activeInn.currentBatsmanOnStrike && !activeInn.isComplete;
+                  const ns  = isCurInn && i === activeInn.currentBatsmanNonStrike && !activeInn.isComplete;
                   const sr  = bat.balls > 0 ? Math.round((bat.runs / bat.balls) * 100) : 0;
                   return (
                     <div key={bat.playerId}
@@ -2199,12 +2267,12 @@ export function MatchScreen() {
                 })}
                 <div className="flex items-center px-4 py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                   <span className="flex-1 text-gray-500 text-sm">Extras</span>
-                  <span className="text-gray-400 text-sm tabular-nums">{extras}</span>
+                  <span className="text-gray-400 text-sm tabular-nums">{activeInn.extras ?? 0}</span>
                 </div>
                 <div className="flex items-center px-4 py-3" style={{ background: "rgba(0,0,0,0.2)" }}>
                   <span className="flex-1 text-white font-semibold text-sm">Total</span>
                   <span className="text-white font-bold text-base tabular-nums">
-                    {innings.totalRuns}/{innings.totalWickets} ({formatOvers(totalBalls)} ov)
+                    {activeInn.totalRuns}/{activeInn.totalWickets} ({formatOvers(activeInn.batsmen.reduce((s, b) => s + b.balls, 0))} ov)
                   </span>
                 </div>
               </div>
@@ -2214,7 +2282,7 @@ export function MatchScreen() {
                    style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
                 <div className="px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-red-400"
                      style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                  Bowling — {innings.bowlingTeamName}
+                  Bowling — {activeInn.bowlingTeamName}
                 </div>
                 <div className="flex items-center px-4 py-1.5"
                      style={{ background: "rgba(0,0,0,0.3)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
@@ -2224,10 +2292,11 @@ export function MatchScreen() {
                   <span className="w-8  text-right text-[10px] text-gray-500">W</span>
                   <span className="w-16 text-right text-[10px] text-gray-500">Econ</span>
                 </div>
-                {innings.bowlers.filter(b => b.overs > 0 || b.ballsInCurrentOver > 0).map(b => {
+                {activeInn.bowlers.filter(b => b.overs > 0 || b.ballsInCurrentOver > 0).map(b => {
                   const p   = findPlayer(allPlayers, b.playerId);
                   const bs  = b.overs * 6 + b.ballsInCurrentOver;
-                  const cur = b.playerId === curBowler?.playerId;
+                  const isCurInn = scorecardInnTab === state.currentInnings;
+                  const cur = isCurInn && b.playerId === curBowler?.playerId;
                   return (
                     <div key={b.playerId}
                          className="flex items-center px-4 py-2.5"
@@ -2247,13 +2316,13 @@ export function MatchScreen() {
                     </div>
                   );
                 })}
-                {innings.bowlers.filter(b => b.overs > 0 || b.ballsInCurrentOver > 0).length === 0 && (
+                {activeInn.bowlers.filter(b => b.overs > 0 || b.ballsInCurrentOver > 0).length === 0 && (
                   <p className="text-sm text-gray-600 italic p-4">No overs bowled yet</p>
                 )}
               </div>
 
-              {/* Win probability — 2nd innings only */}
-              {isSecond && innings.target !== undefined && (() => {
+              {/* Win probability — active 2nd innings only */}
+              {scorecardInnTab === state.currentInnings && isSecond && innings.target !== undefined && (() => {
                 const wp = computeWinProb(innings.totalRuns, innings.target, totalBalls, innings.matchOvers, innings.totalWickets);
                 return (
                   <div className="rounded-xl p-4"
@@ -2276,8 +2345,10 @@ export function MatchScreen() {
                   </div>
                 );
               })()}
+              </>)}
             </div>
-          )}
+            );
+          })()}
 
           {/* ── Score progression / worm ── */}
           {pauseView === "worm" && (
@@ -2311,7 +2382,7 @@ export function MatchScreen() {
           )}
 
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }

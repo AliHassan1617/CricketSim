@@ -75,6 +75,8 @@ export enum GamePhase {
   MultiplayerGuest   = "multiplayer-guest",
   WCSetup            = "wc-setup",
   WCHub              = "wc-hub",
+  SeriesSetup        = "series-setup",
+  SeriesHub          = "series-hub",
 }
 
 export enum SidebarTab {
