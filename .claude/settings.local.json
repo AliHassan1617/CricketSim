@@ -9,7 +9,18 @@
       "Bash(\"$ADB\" devices)",
       "Bash(./gradlew assembleDebug:*)",
       "Bash(powershell -Command:*)",
-      "Bash(\"C:\\\\Users\\\\pc\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" devices)"
+      "Bash(\"C:\\\\Users\\\\pc\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" devices)",
+      "WebFetch(domain:unsplash.com)",
+      "Bash(npx tsc:*)",
+      "Bash(cmd /c \"dir \"\"D:\\\\Ali Hassan\\\\Projects\\\\CricketSim\\\\android\\\\app\\\\build\\\\outputs\\\\apk\\\\debug\"\"\")",
+      "Bash(cmd /c \"dir android\\\\app\\\\build\\\\outputs /s /b\")",
+      "Bash(cmd /c:*)",
+      "Bash(./gradlew tasks:*)",
+      "Bash(npm install:*)",
+      "Bash(npx vite build)",
+      "Bash(python3:*)",
+      "Bash(cmd.exe /c \"gradlew.bat assembleDebug\")",
+      "Bash(echo \"EXIT: $?\")"
     ]
   }
 }
